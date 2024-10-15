@@ -43,8 +43,8 @@ TEST(Results, allResultValues) {
     sim.addGround(-1);
 
     // fluids
-    auto fluid0 = sim.addFluid(1e-3, 1e3, 1.0, 9e-10);
-    auto fluid1 = sim.addFluid(3e-3, 1e3, 1.0, 9e-10);
+    auto fluid0 = sim.addFluid(1e-3, 1e3);
+    auto fluid1 = sim.addFluid(3e-3, 1e3);
     //--- continuousPhase ---
     sim.setContinuousPhase(fluid0);
 
@@ -118,12 +118,12 @@ TEST(Results, allResultValues) {
     ASSERT_EQ(result.fluids.at(fluid0).name, "");
     ASSERT_EQ(result.fluids.at(fluid0).viscosity, 1e-3);
     ASSERT_EQ(result.fluids.at(fluid0).density, 1e3);
-    ASSERT_EQ(result.fluids.at(fluid0).concentration, 1.0);
+    ASSERT_EQ(result.fluids.at(fluid0).concentration, 0.0);
     ASSERT_EQ(result.fluids.at(fluid1).id, fluid1);
     ASSERT_EQ(result.fluids.at(fluid1).name, "");
     ASSERT_EQ(result.fluids.at(fluid1).viscosity, 3e-3);
     ASSERT_EQ(result.fluids.at(fluid1).density, 1e3);
-    ASSERT_EQ(result.fluids.at(fluid1).concentration, 1.0);
+    ASSERT_EQ(result.fluids.at(fluid1).concentration, 0.0);
 
     ASSERT_EQ(result.droplets.at(droplet0).id, droplet0);
     ASSERT_EQ(result.droplets.at(droplet0).name, "");
@@ -334,7 +334,7 @@ TEST(Results, allResultValues) {
     // ASSERT_EQ(result.states.at(7).dropletPositions.at(droplet0).tailPosition.volumeTowards0, 0);
     // ASSERT_EQ(result.states.at(7).dropletPositions.at(droplet0).channelIds, std::vector<int>{});
 
-    ASSERT_EQ(result.continuousPhaseMixtureId, fluid0);
+    ASSERT_EQ(result.continuousPhaseId, fluid0);
 
     ASSERT_EQ(result.maximalAdaptiveTimeStep, 0);
 
@@ -375,8 +375,8 @@ TEST(Results, inverseDirectionChannels) {
     sim.addGround(-1);
 
     // fluids
-    auto fluid0 = sim.addFluid(1e-3, 1e3, 1.0, 9e-10);
-    auto fluid1 = sim.addFluid(3e-3, 1e3, 1.0, 9e-10);
+    auto fluid0 = sim.addFluid(1e-3, 1e3);
+    auto fluid1 = sim.addFluid(3e-3, 1e3);
     //--- continuousPhase ---
     sim.setContinuousPhase(fluid0);
 
@@ -591,7 +591,7 @@ TEST(Results, inverseDirectionChannels) {
     // ASSERT_EQ(result.states.at(7).dropletPositions.at(droplet0).tailPosition.volumeTowards0, 0);
     // ASSERT_EQ(result.states.at(7).dropletPositions.at(droplet0).channelIds, std::vector<int>{});
 
-    ASSERT_EQ(result.continuousPhaseMixtureId, fluid0);
+    ASSERT_EQ(result.continuousPhaseId, fluid0);
 
     ASSERT_EQ(result.maximalAdaptiveTimeStep, 0);
 
@@ -632,8 +632,8 @@ TEST(Results, mixedDirectionChannels) {
     sim.addGround(-1);
 
     // fluids
-    auto fluid0 = sim.addFluid(1e-3, 1e3, 1.0, 9e-10);
-    auto fluid1 = sim.addFluid(3e-3, 1e3, 1.0, 9e-10);
+    auto fluid0 = sim.addFluid(1e-3, 1e3);
+    auto fluid1 = sim.addFluid(3e-3, 1e3);
     //--- continuousPhase ---
     sim.setContinuousPhase(fluid0);
 
@@ -848,84 +848,222 @@ TEST(Results, mixedDirectionChannels) {
     // ASSERT_EQ(result.states.at(7).dropletPositions.at(droplet0).tailPosition.volumeTowards0, 1);
     // ASSERT_EQ(result.states.at(7).dropletPositions.at(droplet0).channelIds, std::vector<int>{});
 
-    ASSERT_EQ(result.continuousPhaseMixtureId, fluid0);
+    ASSERT_EQ(result.continuousPhaseId, fluid0);
 
     ASSERT_EQ(result.maximalAdaptiveTimeStep, 0);
 
     ASSERT_EQ(result.resistanceModel, 0);
 }
 
-TEST(Results, continuousFlowConcentration) {
-    //--- API ---
+TEST(Results, noSink1) {
     droplet::Simulator sim;
 
-    // nodes
     int nodeGroundId = -1;
     int node0Id = 0;
+    int node1Id = 1;
 
-    // flowRate pump
-    auto flowRate = -3e-11;
+    auto flowRate = 3e-11;
     auto pump = sim.addFlowRatePump(nodeGroundId, node0Id, flowRate);
 
-    // channels
     auto cWidth = 100e-6;
     auto cHeight = 30e-6;
     auto cLength = 1000e-6;
 
-    auto c1 = sim.addChannel(0, -1, cHeight, cWidth, cLength);
+    auto c1 = sim.addChannel(node0Id, node1Id, cHeight, cWidth, cLength);
+    auto c2 = sim.addChannel(node1Id, nodeGroundId, cHeight, cWidth, cLength);
 
-    //--- sink ---
-    sim.addSink(-1);
-    //--- ground ---
-    sim.addGround(-1);
+    sim.addGround(nodeGroundId);
 
-    // fluids
-    auto fluid0 = sim.addFluid(1e-3, 1e3, 1.0, 9e-10);
-    auto fluid1 = sim.addFluid(3e-3, 1e3, 0.8, 9e-10);
-    //--- continuousPhase ---
+    auto fluid0 = sim.addFluid(1e-3, 1e3);
+    auto fluid1 = sim.addFluid(3e-3, 1e3);
     sim.setContinuousPhase(fluid0);
 
-    // injection
-    sim.setChangeInputFluid(fluid1, pump, 0.5);
+    auto dropletVolume = 1.5 * cWidth * cWidth * cHeight;
+    auto droplet0 = sim.addDroplet(fluid1, dropletVolume, 0.0, c1, 0.5);
 
-    // check if chip is valid
     sim.checkChipValidity();
 
-    // simulate
-    sim.setSimulationCalculationTimeStep(0.2);
-    sim.setSimulationResultTimeStep(0.2);
-    sim.setSimulationDuration(1.0);
     droplet::SimulationResult result = sim.simulate();
 
-    // print the result
-    //std::cout << "--- result ---" << std::endl;
-    //std::cout << result.toJson(4) << std::endl;
+    ASSERT_EQ(result.chip.name, "");
+}
 
-    ASSERT_NEAR(result.states.at(0).time, 0.0, 5e-7);
-    ASSERT_NEAR(result.states.at(1).time, 0.2, 5e-7);
-    ASSERT_NEAR(result.states.at(2).time, 0.4, 5e-7);
-    ASSERT_NEAR(result.states.at(3).time, 0.6, 5e-7);
-    ASSERT_NEAR(result.states.at(4).time, 0.8, 5e-7);
-    ASSERT_NEAR(result.states.at(5).time, 1.0, 5e-7);
-    ASSERT_NEAR(result.states.at(6).time, 1.0, 5e-7);
+TEST(Results, noSink2) {
+    droplet::Simulator sim;
 
-    ASSERT_EQ(result.states.at(0).mixturesInEdge.at(c1).back().first, 0);
-    ASSERT_EQ(result.states.at(0).mixturesInEdge.at(c1).back().second, 1.0);
-    ASSERT_EQ(result.states.at(0).mixturesInEdge.at(c1).front().first, 0);
-    ASSERT_EQ(result.states.at(0).mixturesInEdge.at(c1).front().second, 1.0);
+    int nodeGroundId = -1;
+    int node0Id = 0;
+    int node1Id = 1;
 
-    ASSERT_EQ(result.mixtures.at(result.states.at(1).mixturesInEdge.at(c1).back().first).fluidConcentrations.at(fluid0), 1.0);
-    ASSERT_EQ(result.mixtures.at(result.states.at(1).mixturesInEdge.at(c1).back().first).fluidConcentrations.at(fluid0), 1.0);
-    ASSERT_EQ(result.mixtures.at(result.states.at(1).mixturesInEdge.at(c1).front().first).fluidConcentrations.at(fluid0), 1.0);
-    ASSERT_EQ(result.mixtures.at(result.states.at(1).mixturesInEdge.at(c1).front().first).fluidConcentrations.at(fluid0), 1.0);
+    auto flowRate = 3e-11;
+    auto pump = sim.addFlowRatePump(nodeGroundId, node0Id, flowRate);
 
-    ASSERT_EQ(result.mixtures.at(result.states.at(2).mixturesInEdge.at(c1).back().first).fluidConcentrations.at(fluid0), 1.0);
-    ASSERT_EQ(result.mixtures.at(result.states.at(2).mixturesInEdge.at(c1).back().first).fluidConcentrations.at(fluid0), 1.0);
-    ASSERT_EQ(result.mixtures.at(result.states.at(2).mixturesInEdge.at(c1).front().first).fluidConcentrations.at(fluid0), 1.0);
-    ASSERT_EQ(result.mixtures.at(result.states.at(2).mixturesInEdge.at(c1).front().first).fluidConcentrations.at(fluid0), 1.0);
+    auto cWidth = 100e-6;
+    auto cHeight = 30e-6;
+    auto cLength = 1000e-6;
 
-    ASSERT_DOUBLE_EQ(result.mixtures.at(result.states.at(3).mixturesInEdge.at(c1).back().first).fluidConcentrations.at(fluid1), 0.8);
-    ASSERT_DOUBLE_EQ(result.mixtures.at(result.states.at(3).mixturesInEdge.at(c1).back().first).fluidConcentrations.at(fluid1), 0.8);
-    ASSERT_DOUBLE_EQ(result.mixtures.at(result.states.at(3).mixturesInEdge.at(c1).front().first).fluidConcentrations.at(fluid1), 0.8);
-    ASSERT_DOUBLE_EQ(result.mixtures.at(result.states.at(3).mixturesInEdge.at(c1).front().first).fluidConcentrations.at(fluid1), 0.8);
+    auto c1 = sim.addChannel(node0Id, node1Id, cHeight, cWidth, cLength);
+    auto c2 = sim.addChannel(node1Id, nodeGroundId, cHeight, cWidth, cLength);
+
+    sim.addGround(nodeGroundId);
+
+    auto fluid0 = sim.addFluid(1e-3, 1e3);
+    auto fluid1 = sim.addFluid(3e-3, 1e3);
+    sim.setContinuousPhase(fluid0);
+
+    auto dropletVolume = 1.5 * cWidth * cWidth * cHeight;
+    auto droplet0 = sim.addDroplet(fluid1, dropletVolume, 0.1, c1, 0.5);
+
+    sim.checkChipValidity();
+
+    droplet::SimulationResult result = sim.simulate();
+
+    ASSERT_EQ(result.chip.name, "");
+}
+
+TEST(Results, noSinkTwoDroplets) {
+    droplet::Simulator sim;
+
+    int nodeGroundId = -1;
+    int node0Id = 0;
+    int node1Id = 1;
+
+    auto flowRate = 3e-11;
+    auto pump = sim.addFlowRatePump(nodeGroundId, node0Id, flowRate);
+
+    auto cWidth = 100e-6;
+    auto cHeight = 30e-6;
+    auto cLength = 1000e-6;
+
+    auto c1 = sim.addChannel(node0Id, node1Id, cHeight, cWidth, cLength);
+    auto c2 = sim.addChannel(node1Id, nodeGroundId, cHeight, cWidth, cLength);
+
+    sim.addGround(nodeGroundId);
+
+    auto fluid0 = sim.addFluid(1e-3, 1e3);
+    auto fluid1 = sim.addFluid(3e-3, 1e3);
+    sim.setContinuousPhase(fluid0);
+
+    auto dropletVolume = 1.5 * cWidth * cWidth * cHeight;
+    auto droplet0 = sim.addDroplet(fluid1, dropletVolume, 0.0, c2, 0.5);
+    auto droplet1 = sim.addDroplet(fluid1, dropletVolume, 0.0, c1, 0.5);
+
+    sim.checkChipValidity();
+
+    droplet::SimulationResult result = sim.simulate();
+
+    ASSERT_EQ(result.chip.name, "");
+}
+
+
+TEST(Chip, triangleNetwork) {
+    auto cWidth = 100e-6;
+    auto cHeight = 30e-6;
+    auto cLength = 1000e-6;
+    
+    // define network 1
+    droplet::Simulator sim1;
+
+    int c1 = sim1.addChannel(1, 2, cHeight, cWidth, cLength);
+    int c2 = sim1.addChannel(2, 0, cHeight, cWidth, cLength);
+    int v0 = sim1.addPressurePump(0, 1, 1000.0);
+
+    sim1.addGround(0);
+    auto fluid0 = sim1.addFluid(1e-3, 1e3);
+    sim1.setContinuousPhase(fluid0);
+    sim1.checkChipValidity();
+
+    // define network 2
+    droplet::Simulator sim2;
+
+    int c3 = sim2.addChannel(2, 1, cHeight, cWidth, cLength);
+    int c4 = sim2.addChannel(0, 2, cHeight, cWidth, cLength);
+    int v1 = sim2.addPressurePump(0, 1, 1000.0);
+
+    sim2.addGround(0);
+    auto fluid1 = sim2.addFluid(1e-3, 1e3);
+    sim2.setContinuousPhase(fluid1);
+    sim2.checkChipValidity();
+
+    // Simulate
+
+    auto result1 = sim1.simulate();
+    auto result2 = sim2.simulate();
+
+    auto pressures1 = result1.getPressures();
+    auto pressures2 = result2.getPressures();
+    auto flowrates1 = result1.getFlowRates();
+    auto flowrates2 = result2.getFlowRates();
+
+    // Print results
+    std::cout << "Node\tDiff" << std::endl;
+    for (auto const& [key, pressure] : pressures1) {
+        std::cout << key <<"\t" << pressure - pressures2[key] << std::endl;
+    }
+    std::cout << "\nChannel\tDiff" << std::endl;
+    std::cout << 0 <<"\t" << flowrates1[0] + flowrates2[0] << std::endl;
+    std::cout << 1 <<"\t" << flowrates1[1] + flowrates2[1] << std::endl;
+    std::cout << 2 <<"\t" << flowrates1[2] - flowrates2[2] << std::endl;
+}
+
+TEST(Chip, Y_Network) {
+    auto cWidth = 10e-6;
+    auto cHeight = 3e-6;
+    auto cLength = 100e-6;
+    
+    // define network 1
+    droplet::Simulator sim1;
+
+    int c1 = sim1.addChannel(1, 2, cHeight, cWidth, cLength);
+    int c2 = sim1.addChannel(2, 3, cHeight, cWidth, cLength);
+    int c3 = sim1.addChannel(2, 4, cHeight, cWidth, cLength);
+    int v0 = sim1.addPressurePump(0, 1, 1000.0);
+    int v1 = sim1.addPressurePump(5, 3, 1000.0);
+
+    sim1.addGround(0);
+    sim1.addGround(4);
+    sim1.addGround(5);
+
+    auto fluid0 = sim1.addFluid(1e-3, 1e3);
+    sim1.setContinuousPhase(fluid0);
+    sim1.checkChipValidity();
+
+    // define network 2
+    droplet::Simulator sim2;
+
+    int c4 = sim2.addChannel(2, 1, cHeight, cWidth, cLength);
+    int c5 = sim2.addChannel(3, 2, cHeight, cWidth, cLength);
+    int c6 = sim2.addChannel(4, 2, cHeight, cWidth, cLength);
+    int v2 = sim2.addPressurePump(0, 1, 1000.0);
+    int v3 = sim2.addPressurePump(5, 3, 1000.0);
+
+    sim2.addGround(0);
+    sim2.addGround(4);
+    sim2.addGround(5);
+
+    auto fluid1 = sim2.addFluid(1e-3, 1e3);
+    sim2.setContinuousPhase(fluid1);
+    sim2.checkChipValidity();
+
+    // Simulate
+
+    auto result1 = sim1.simulate();
+    auto result2 = sim2.simulate();
+
+    auto pressures1 = result1.getPressures();
+    auto pressures2 = result2.getPressures();
+    auto flowrates1 = result1.getFlowRates();
+    auto flowrates2 = result2.getFlowRates();
+
+    // Print results
+    std::cout << "Node\tDiff" << std::endl;
+    for (auto const& [key, pressure] : pressures1) {
+        std::cout << key <<"\t" << pressure - pressures2[key] << std::endl;
+    }
+    std::cout << "\nChannel\tDiff" << std::endl;
+    std::cout << 0 <<"\t" << flowrates1[0] + flowrates2[0] << std::endl;
+    std::cout << 1 <<"\t" << flowrates1[1] + flowrates2[1] << std::endl;
+    std::cout << 2 <<"\t" << flowrates1[2] + flowrates2[2] << std::endl;
+    std::cout << 3 <<"\t" << flowrates1[3] - flowrates2[3] << std::endl;
+    std::cout << 4 <<"\t" << flowrates1[4] - flowrates2[4] << std::endl;
 }

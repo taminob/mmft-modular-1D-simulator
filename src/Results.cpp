@@ -1,14 +1,12 @@
 #include "Results.h"
 
-#include <deque>
 #include <iostream>
 #include <ostream>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace droplet {
 
@@ -18,21 +16,13 @@ DropletBoundary::DropletBoundary(int channelId, double position, bool volumeTowa
 
 DropletPosition::DropletPosition(DropletState state) : state(state) {}
 
-Fluid::Fluid(int id, std::string name, double viscosity, double density, double concentration, double molecularSize, double diffusionCoefficient, double saturation) : id(id), name(name), viscosity(viscosity), density(density), concentration(concentration), molecularSize(molecularSize), diffusionCoefficient(diffusionCoefficient), saturation(saturation) {}
-
-Mixture::Mixture(int id, std::unordered_map<int, double> fluidConcentrations, double viscosity, double density, double largestMolecularSize) : id(id), fluidConcentrations(fluidConcentrations), viscosity(viscosity), density(density), largestMolecularSize(largestMolecularSize) {}
+Fluid::Fluid(int id, std::string name, double viscosity, double density, double concentration) : id(id), name(name), viscosity(viscosity), density(density), concentration(concentration) {}
 
 Droplet::Droplet(int id, std::string name, double volume, int fluidId) : id(id), name(name), volume(volume), fluidId(fluidId) {}
 
 Injection::Injection(int id, int dropletId, double time, int channelId, double position) : id(id), dropletId(dropletId), time(time), position(channelId, position) {}
 
-ContinuousInjection::ContinuousInjection(int id, int mixtureId, double time, int pumpId) : id(id), mixtureId(mixtureId), time(time), pumpId(pumpId) {}
-
 Channel::Channel(int id, std::string name, int node0Id, int node1Id, double width, double height, double length, ChannelType type) : id(id), name(name), node0Id(node0Id), node1Id(node1Id), width(width), height(height), length(length), type(type) {}
-
-Membrane::Membrane(int id, std::string name, int node0Id, int node1Id, double width, double height, double length, double poreRadius, double porosity, int channelId, int organId) : id(id), name(name), node0Id(node0Id), node1Id(node1Id), width(width), height(height), length(length), poreRadius(poreRadius), porosity(porosity), channelId(channelId), organId(organId) {}
-
-Organ::Organ(int id, std::string name, int node0Id, int node1Id, double width, double height, double length) : id(id), name(name), node0Id(node0Id), node1Id(node1Id), width(width), height(height), length(length) {}
 
 FlowRatePump::FlowRatePump(int id, std::string name, int node0Id, int node1Id, double flowRate) : id(id), name(name), node0Id(node0Id), node1Id(node1Id), flowRate(flowRate) {}
 
@@ -50,10 +40,6 @@ double State::getPressureDrop(int node0Id, int node1Id) const {
 
 double State::getFlowRate(int channelId) const {
     return flowRates.at(channelId);
-}
-
-std::deque<std::pair<int, double>> State::getMixturesInEdge(int edgeId) const {
-    return mixturesInEdge.at(edgeId);
 }
 
 DropletPathPosition::DropletPathPosition(int stateId) : stateId(stateId) {}
@@ -115,30 +101,12 @@ DropletPath SimulationResult::getDropletPath(int dropletId) const {
     return dropletPath;
 }
 
-std::unordered_map<int, double> SimulationResult::getAverageFluidConcentrationsInEdge(int stateId, int edgeId) const {
-    std::unordered_map<int, double> fluidConcentrations;
-    double prevMixturePos = 0.0;
-    for (auto it = states.at(stateId).mixturesInEdge.at(edgeId).crbegin(); it != states.at(stateId).mixturesInEdge.at(edgeId).crend(); it++) {
-        auto& [mixtureId, mixturePos] = *it;
-        for (auto& [fluidId, concentration] : mixtures.at(mixtureId).fluidConcentrations) {
-            double newConcentration = concentration * (mixturePos - prevMixturePos);
-            auto [iterator, inserted] = fluidConcentrations.try_emplace(fluidId, newConcentration);
-            if (!inserted) {
-                iterator->second = iterator->second + newConcentration;
-            }
-        }
-        prevMixturePos = mixturePos;
-    }
-    return fluidConcentrations;
-}
-
 std::string SimulationResult::toJson(int indent) const {
     nlohmann::json json;
 
-    json["continuousPhaseMixtureId"] = continuousPhaseMixtureId;
+    json["continuousPhaseId"] = continuousPhaseId;
     json["maximalAdaptiveTimeStep"] = maximalAdaptiveTimeStep;
     json["resistanceModel"] = resistanceModel;
-    json["membraneResistanceModel"] = membraneResistanceModel;
 
     // chip
     json["chip"] = nlohmann::json::object();
@@ -146,14 +114,6 @@ std::string SimulationResult::toJson(int indent) const {
     json["chip"]["channels"] = nlohmann::json::array();
     for (auto const& [key, channel] : chip.channels) {
         json["chip"]["channels"].push_back({{"id", channel.id}, {"name", channel.name}, {"node0Id", channel.node0Id}, {"node1Id", channel.node1Id}, {"width", channel.width}, {"height", channel.height}, {"length", channel.length}, {"type", channel.type}});
-    }
-    json["chip"]["membranes"] = nlohmann::json::array();
-    for (auto const& [key, membrane] : chip.membranes) {
-        json["chip"]["membranes"].push_back({{"id", membrane.id}, {"name", membrane.name}, {"node0Id", membrane.node0Id}, {"node1Id", membrane.node1Id}, {"width", membrane.width}, {"height", membrane.height}, {"length", membrane.length}, {"poreRadius", membrane.poreRadius}, {"porosity", membrane.porosity}, {"channelId", membrane.channelId}, {"organId", membrane.organId}});
-    }
-    json["chip"]["organs"] = nlohmann::json::array();
-    for (auto const& [key, organ] : chip.organs) {
-        json["chip"]["organs"].push_back({{"id", organ.id}, {"name", organ.name}, {"node0Id", organ.node0Id}, {"node1Id", organ.node1Id}, {"width", organ.width}, {"height", organ.height}, {"length", organ.length}});
     }
     json["chip"]["flowRatePumps"] = nlohmann::json::array();
     for (auto const& [key, flowRatePump] : chip.flowRatePumps) {
@@ -167,13 +127,7 @@ std::string SimulationResult::toJson(int indent) const {
     // fluids
     json["fluids"] = nlohmann::json::array();
     for (auto const& [key, fluid] : fluids) {
-        json["fluids"].push_back({{"id", fluid.id}, {"name", fluid.name}, {"mixedFluidIds", fluid.mixedFluidIds}, {"viscosity", fluid.viscosity}, {"density", fluid.density}, {"concentration", fluid.concentration}, {"molecularSize", fluid.molecularSize}, {"diffusionCoefficient", fluid.diffusionCoefficient}, {"saturation", fluid.saturation}});
-    }
-
-    // mixtures
-    json["mixtures"] = nlohmann::json::array();
-    for (auto const& [key, mixture] : mixtures) {
-        json["mixtures"].push_back({{"id", mixture.id}, {"fluidConcentrations", mixture.fluidConcentrations}, {"viscosity", mixture.viscosity}, {"density", mixture.density}, {"largestMolecularSize", mixture.largestMolecularSize}});
+        json["fluids"].push_back({{"id", fluid.id}, {"name", fluid.name}, {"mixedFluidIds", fluid.mixedFluidIds}, {"viscosity", fluid.viscosity}, {"density", fluid.density}, {"concentration", fluid.concentration}});
     }
 
     // droplets
@@ -186,11 +140,6 @@ std::string SimulationResult::toJson(int indent) const {
     json["injections"] = nlohmann::json::array();
     for (auto const& [key, injection] : injections) {
         json["injections"].push_back({{"id", injection.id}, {"dropletId", injection.dropletId}, {"time", injection.time}, {"position", {{"channelId", injection.position.channelId}, {"position", injection.position.position}}}});
-    }
-
-    json["continuousInjections"] = nlohmann::json::array();
-    for (auto const& [key, continuousInjection] : continuousInjections) {
-        json["continuousInjections"].push_back({{"id", continuousInjection.id}, {"mixtureId", continuousInjection.mixtureId}, {"time", continuousInjection.time}, {"pumpId", continuousInjection.pumpId}});
     }
 
     // states
@@ -243,14 +192,8 @@ std::string SimulationResult::toJson(int indent) const {
             dropletPositions[std::to_string(key)] = jsonDropletPosition;
         }
 
-        // mixtureInEdge
-        auto mixturesInEdge = nlohmann::json::object();
-        for (auto const& [channelId, fluidIds] : state.mixturesInEdge) {
-            mixturesInEdge[std::to_string(channelId)] = fluidIds;
-        }
-
         //add state to array
-        json["states"].push_back({{"id", state.id}, {"time", state.time}, {"pressures", pressures}, {"flowRates", flowRates}, {"dropletPositions", dropletPositions}, {"mixtureInEdge", mixturesInEdge}});
+        json["states"].push_back({{"id", state.id}, {"time", state.time}, {"pressures", pressures}, {"flowRates", flowRates}, {"dropletPositions", dropletPositions}});
     }
 
     return json.dump(indent);
@@ -261,7 +204,7 @@ SimulationResult SimulationResult::fromJson(std::string jsonString) {
 
     SimulationResult results;
 
-    results.continuousPhaseMixtureId = json["continuousPhaseMixtureId"];
+    results.continuousPhaseId = json["continuousPhaseId"];
     results.maximalAdaptiveTimeStep = json["maximalAdaptiveTimeStep"];
     results.resistanceModel = json["resistanceModel"];
 
@@ -286,7 +229,7 @@ SimulationResult SimulationResult::fromJson(std::string jsonString) {
 
     //##fluids###
     for (auto& fluid : json["fluids"]) {
-        auto [value, success] = results.fluids.try_emplace(fluid["id"], fluid["id"], fluid["name"], fluid["viscosity"], fluid["density"], fluid["molecularSize"], fluid["concentration"], fluid["diffusionCoefficient"], fluid["saturation"]);
+        auto [value, success] = results.fluids.try_emplace(fluid["id"], fluid["id"], fluid["name"], fluid["viscosity"], fluid["density"], fluid["concentration"]);
         for (auto& fluidId : fluid["mixedFluidIds"]) {
             value->second.mixedFluidIds.emplace_back(fluidId);
         }
@@ -303,9 +246,6 @@ SimulationResult SimulationResult::fromJson(std::string jsonString) {
     //##injections###
     for (auto& injection : json["injections"]) {
         results.injections.try_emplace(injection["id"], injection["id"], injection["dropletId"], injection["time"], injection["position"]["channelId"], injection["position"]["position"]);
-    }
-    for (auto& continuousInjection : json["continuousInjections"]) {
-        results.continuousInjections.try_emplace(continuousInjection["id"], continuousInjection["id"], continuousInjection["mixtureId"], continuousInjection["time"], continuousInjection["pumpId"]);
     }
 
     //###states###
@@ -338,14 +278,18 @@ SimulationResult SimulationResult::fromJson(std::string jsonString) {
                 value->second.channelIds.emplace_back(channelId);
             }
         }
-
-        //mixtureInEgde
-        for (auto& [channelId, mixtureId] : jsonState["mixturesInEdge"].items()) {
-            state.mixturesInEdge.try_emplace(std::stoi(channelId), mixtureId);
-        }
     }
 
     return results;
+}
+
+
+std::unordered_map<int, double> SimulationResult::getPressures() const {
+    return states[0].pressures;
+}
+
+std::unordered_map<int, double> SimulationResult::getFlowRates() const {
+    return states[0].flowRates;
 }
 
 }  // namespace droplet

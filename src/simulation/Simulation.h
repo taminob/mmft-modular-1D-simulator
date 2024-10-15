@@ -4,26 +4,19 @@
 
 #pragma once
 
-#include <algorithm>
 #include <limits>
 #include <memory>
-#include <queue>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "ChangeInputMixture.h"
-#include "Chip.h"
+#include "../architecture/Chip.h"
 #include "Droplet.h"
-#include "DropletBoundary.h"
-#include "Event.h"
+#include "events/Event.h"
 #include "Fluid.h"
-#include "IMembraneResistanceModel.h"
 #include "IResistanceModel.h"
 #include "Injection.h"
-#include "MembraneResistanceModels.h"
-#include "Mixture.h"
-#include "Results.h"
+#include "../droplet-simulator/Results.h"
 
 namespace sim {
 
@@ -31,63 +24,34 @@ namespace sim {
  * @brief Enum to define the available resistance models.
  */
 enum class ResistanceModel {
-    ONE_D_MODEL,             ///< 1D Resistance Model.
-    TEST_MODEL,              ///< Test Resistance Model.
-    ONE_D_CONTINUOUS_MODEL,  ///< 1D Resistance Model.
+    ONE_D_MODEL,  ///< 1D Resistance Model.
+    TEST_MODEL    ///< Test Resistance Model.
 };
-
-/**
- * @brief Enum to define the available membrane resistance models.
- */
-enum class MembraneResistanceModel { MODEL_0, MODEL_1, MODEL_2, MODEL_3, MODEL_4, MODEL_5, MODEL_6, MODEL_7, MODEL_8, MODEL_9 };
 
 /**
  * @brief Class that conducts the simulation and owns all parameters necessary for it.
  */
 class Simulation {
   private:
-    arch::Chip* chip;                                                                  ///< Chip for which the simulation should be conducted.
-    std::unordered_map<int, std::unique_ptr<Fluid>> fluids;                            ///< Fluids specified for the simulation.
-    std::unordered_map<int, std::unique_ptr<Droplet>> droplets;                        ///< Droplets which are simulated.
-    std::unordered_map<int, std::unique_ptr<Injection>> injections;                    ///< Injections of droplets that should take place during the simulation.
-    std::unordered_map<int, std::unique_ptr<ChangeInputMixture>> changeInputMixtures;  ///< Injections of fluids that should take place during the simulation.
-    std::unordered_map<int, std::deque<std::pair<int, double>>> mixturesInEdge;        ///< Which mixture currently flows in which edge <EdgeID, <MixtureID, currPos>>>
-    std::vector<Mixture> mixtures;
-    // std::unordered_map<int, std::unique_ptr<Mixture>> mixtures;                        ///< Fluid mixtures, contains fluidIds and concentrations of which a mixture is made of
-    std::unique_ptr<IResistanceModel> resistanceModel;                                       ///< The resistance model used for the simulation.
-    std::unique_ptr<IMembraneResistanceModel> membraneResistanceModel;                       ///< The membrane resistance model used for the simulation.
-    ResistanceModel resistanceModelName = ResistanceModel::ONE_D_MODEL;                      ///< Which resistance model should be used for the calculations of this simulation.
-    MembraneResistanceModel membraneResistanceModelName = MembraneResistanceModel::MODEL_9;  ///< Which membrane resistance model should be used for the calculations of this simulation.
-    int continuousPhaseMixtureId = -1;                                                       ///< MixtureId of the continuous phase.
-    double const slipFactor = 1.28;                                                          ///< Slip factor of droplets.
-    double maximalAdaptiveTimeStep = 0;                                                      ///< Maximal adaptive time step that is applied when droplets change the channel.
-    double currTime = 0;                                                                     ///< The time elapsed since the start of the simulation in s.
-    double iState = 0;                                                                       ///< The current index of the next state.
-    bool dropletsAtBifurcation = false;                                                      ///< If one or more droplets are currently at a bifurcation. Triggers the usage of the maximal adaptive time step.
-    bool enableMerging = true;                                                               ///< If the droplet merging simulation should be performed.
-    bool simulationInProgress;                                                               ///< Information if the simulation is currently in progress.
-    double simulationDuration = std::numeric_limits<double>::max();                          ///< Simulation duration in s. Required for continuous fluid simulations.
-    double simulationResultTimeStep = 0.2;                                                   ///< Simulation time steps for the output of the simulation in s. Required for continuous fluid simulations.
-    double minSimulationCalcTimeStep = std::numeric_limits<double>::max();                   ///< Minimal simulation time steps for the internal simulation calculation.
-    double internalSimulationTimeStep;                                                       ///< Internal simulation time steps for which the new state of the simulation is calculated (if no other events take place). Required for continuous fluid simulations. Might be higher than simulationTimeStep and is based on the shortest throughput time of an edge in the network.
+    arch::Chip* chip;                                                    ///< Chip for which the simulation should be conducted.
+    std::unordered_map<int, std::unique_ptr<Fluid>> fluids;              ///< Fluids specified for the simulation.
+    std::unordered_map<int, std::unique_ptr<Droplet>> droplets;          ///< Droplets which are simulated.
+    std::unordered_map<int, std::unique_ptr<Injection>> injections;      ///< Injections of droplets that should take place during the simulation.
+    std::unique_ptr<IResistanceModel> resistanceModel;                   ///< The resistance model used for the simulation.
+    ResistanceModel resistanceModelName = ResistanceModel::ONE_D_MODEL;  ///< Which resistance model should be used for the calculations of this simulation.
+    Fluid* continuousPhase = nullptr;                                    ///< Fluid of the continuous phase.
+    double const slipFactor = 1.28;                                      ///< Slip factor of droplets.
+    double maximalAdaptiveTimeStep = 0;                                  ///< Maximal adaptive time step that is applied when droplets change the channel.
+    double currTime = 0;                                                 ///< The time elapsed since the start of the simulation in s.
+    double iState = 0;                                                   ///< The current index of the next state.
+    bool dropletsAtBifurcation = false;                                  ///< If one or more droplets are currently at a bifurcation. Triggers the usage of the maximal adaptive time step.
+    bool enableMerging = true;                                           ///< If the droplet merging simulation should be performed.
+    unsigned maxIterations = 1000000;                                    ///< Maximum iterations performed before computations are aborted.
 
     /**
      * @brief Initializes the resistance model and the channel resistances of the empty channels.
      */
     void initialize();
-
-    /**
-     * @brief Get the average viscosity of mixtures in a channel 
-     * 
-     * @param channelId Id to channel for which average viscosity should be calculated
-     * @return double Average viscosity of mixtures in channel
-     */
-    double getAverageViscosityInChannel(int channelId);
-
-    /**
-     * @brief Update the channel resistances based on the current average viscosity of fluids within a channel. (Only has an effect if the 1D continuous resistance model is used, as otherwise the continuous phase viscosity is considered which does not change.)
-     */
-    void updateChannelResistances();
 
     /**
      * @brief Update the droplet resistances of the channels based on the current positions of the droplets.
@@ -97,30 +61,13 @@ class Simulation {
     /**
      * @brief Compute all possible next events.
      */
-    std::vector<std::unique_ptr<Event>> computeEvents(double simulationResultTimeCounter);
+    std::vector<std::unique_ptr<Event>> computeEvents();
 
     /**
      * @brief Moves all droplets according to the given time step.
-     * @param[in] timeStep Duration to which the droplet movement should be forwarded.
+     * @param[in] timeStep to which the droplets should be moved to. TODO
      */
     void moveDroplets(double timeStep);
-
-    /**
-     * @brief Get the outflow volume of a pump at a node.
-     * 
-     * @param nodeId Id of the node.
-     * @param flowRate Flow-rate of the pump.
-     * @param timeStep Time step for which the outflow volume should be calculated.
-     * @return Outflow volume for a specific duration at a specific node.
-     */
-    double getPumpOutflowVolume(int nodeId, double flowRate, double timeStep);
-
-    /**
-     * @brief Calculate and set new state of the continuous fluid simulation. Move mixture positions and create new mixtures if necessary.
-     * 
-     * @param timeStep Time step in s for which the new mixtures state should be calculated.
-     */
-    void calculateNewMixtures(double timeStep);
 
     /**
      * @brief Store simulation parameters to the result.
@@ -159,58 +106,16 @@ class Simulation {
     void setContinuousPhase(int fluidId);
 
     /**
-     * @brief Get the Mixture that consists of 100% of the fiven fluid object.
-     * 
-     * @param fluidId Unique identifier of the fluid.
+     * @brief Get the continuous phase.
+     * @return Fluid if the continuous phase or nullptr if no continuous phase is specified.
      */
-    int getMixtureOfFluid(int fluidId);
-
-    /**
-     * @brief Fills the chip with the continuous phase mixture (in the beginning of the simulation).
-     * 
-     */
-    void fillChipWithContinuousPhaseMixture();
-
-    /**
-     * @brief Set a pointer to the Mixture Injection object.
-     * 
-     * @param fluidId Unique identifier of the fluid to be injected.
-     * @param pumpId Unique identifier of the pump at which the fluid should be injected.
-     * @param injectionTime Time at which the fluid injection should start.
-     * @return Pointer to created injection.
-     */
-    ChangeInputMixture* setChangeInputFluid(int fluidId, int pumpId, double injectionTime);
-
-    /**
-     * @brief Set a pointer to the Mixture Injection object.
-     * 
-     * @param mixtureId Unique identifier of the mixture to be injected.
-     * @param pumpId Unique identifier of the pump at which the fluid should be injected.
-     * @param injectionTime Time at which the fluid injection should start.
-     * @return Pointer to created injection.
-     */
-    ChangeInputMixture* setChangeInputMixture(int mixtureId, int pumpId, double injectionTime);
-
-    /**
-     * @brief Get a pointer to the Fluid Injection object.
-     * 
-     * @param injectionId Id of the continous injection.
-     * @return Pointer to the continuous injection.
-     */
-    ChangeInputMixture* getChangeInputFluid(int injectionId);
+    Fluid* getContinuousPhase();
 
     /**
      * @brief Define which resistance model should be used for the channel and droplet resistance calculations.
      * @param[in] modelName Name of the resistance model to be used.
      */
     void setResistanceModel(ResistanceModel modelName);
-
-    /**
-     * @brief Set the membrane resistance model that should be used for the membrane resistance calculation during the simulation.
-     * 
-     * @param modelName Name of the membrane resistance model.
-     */
-    void setMembraneResistanceModel(MembraneResistanceModel modelName);
 
     /**
      * @brief Define the maximal adaptive time step of the simulation.
@@ -221,17 +126,13 @@ class Simulation {
     void setMaximalAdaptiveTimeStep(double timeStep);
 
     /**
-     * @brief Add new fluid to the simulation.
-     * 
-     * @param viscosity Dynamic viscosity of the fluid in Pas.
-     * @param density Density of the fluid in kg/m^3.
-     * @param concentration Concentration of the fluid in percent (between 0.0 and 1.0).
-     * @param molecularSize Molecular size in m^3.
-     * @param diffusionCoefficient Diffusion coefficient of the fluid in m^2/s.
-     * @param saturation Saturation value to translate the concentration in an actual concentration value [mol/m^3].
-     * @return Pointer to the fluid.
+     * @brief Create fluid.
+     * @param[in] viscosity Viscosity of the fluid in Pas.
+     * @param[in] density Density of the fluid in kg/m^3.
+     * @param[in] concentration Concentration of the fluid in % (between 0.0 and 1.0).
+     * @return Pointer to created fluid.
      */
-    Fluid* addFluid(double viscosity, double density, double concentration, double molecularSize, double diffusionCoefficient, double saturation);
+    Fluid* addFluid(double viscosity, double density, double concentration);
 
     /**
      * @brief Get fluid.
@@ -239,21 +140,6 @@ class Simulation {
      * @return Pointer to fluid with the corresponding id
      */
     Fluid* getFluid(int fluidId);
-
-    /**
-     * @brief Get mixture.
-     * 
-     * @param mixtureId Id of the mixture
-     * @return Pointer to mixture with the correspondig id
-     */
-    Mixture* getMixture(int mixtureId);
-
-    /**
-     * @brief Add mixture
-     *
-     * @param[in] fluids List of fluids and concentration pairs. 
-     */
-    int addMixture(std::unordered_map<int, double>&& fluidConcentrations, int id = -1);
 
     /**
      * @brief Create droplet.
@@ -314,37 +200,10 @@ class Simulation {
     Droplet* mergeDroplets(int droplet0Id, int droplet1Id);
 
     /**
-     * @brief Set the total duration of the simulation.
-     * 
-     * @param duration Total duration in [s].
-     */
-    void setSimulationDuration(double duration);
-
-    /**
-     * @brief Set the timestep for the result output. 
-     * 
-     * @param timeStep Time interval in [s].
-     */
-    void setSimulationResultTimeStep(double timeStep);
-
-    /**
-     * @brief Set the internal calulcation time step.
-     * 
-     * @param timeStep Time interval in [s].
-     */
-    void setSimulationCalculationTimeStep(double timeStep);
-
-    /**
      * @brief Conduct the simulation.
      * @return The result of the simulation containing all intermediate simulation steps and calculated parameters.
      */
     droplet::SimulationResult simulate();
-
-    /**
-     * @brief Stop the simulation.
-     * 
-     */
-    void stopSimulation();
 };
 
 }  // namespace sim

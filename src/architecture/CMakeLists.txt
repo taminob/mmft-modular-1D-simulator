@@ -6,11 +6,8 @@ set(SOURCE_LIST
     FlowRatePump.cpp
     Node.cpp
     PressurePump.cpp
-    Membrane.cpp
-    Organ.cpp
-    Pump.cpp
 )
-
+    
 set(HEADER_LIST
     Channel.h
     ChannelPosition.h
@@ -19,9 +16,6 @@ set(HEADER_LIST
     FlowRatePump.h
     Node.h
     PressurePump.h
-    Membrane.h
-    Organ.h
-    Pump.h
 )
 
 target_sources(${TARGET_NAME} PRIVATE ${SOURCE_LIST} ${HEADER_LIST})

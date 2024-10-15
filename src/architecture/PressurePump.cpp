@@ -2,11 +2,10 @@
 
 #include "Edge.h"
 #include "Node.h"
-#include "Pump.h"
 
 namespace arch {
 
-PressurePump::PressurePump(int id, Node* node0, Node* node1, double pressure) : Pump(), Edge(id, node0, node1), pressure(pressure) {}
+PressurePump::PressurePump(int id, Node* node0, Node* node1, double pressure) : Edge(id, node0, node1), pressure(pressure) {}
 
 void PressurePump::setPressure(double pressure) {
     this->pressure = pressure;

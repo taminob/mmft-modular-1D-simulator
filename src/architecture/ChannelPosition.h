@@ -38,7 +38,7 @@ class ChannelPosition {
 
     /**
      * @brief Add the volume shift to the current position.
-     * @param[in] volumeShift Shift of the volume in flow direction in m^3.
+     * @param[in] volumeShift Shift of the volume in flow direction in L.
      */
     void addToPosition(double volumeShift);
 
@@ -62,13 +62,13 @@ class ChannelPosition {
 
     /**
      * @brief Calculates and returns volume towards node 0.
-     * @return Volume towards node 0 in m^3.
+     * @return Volume towards node 0 in L.
      */
     double getVolume0() const;
 
     /**
      * @brief Calculates and returns volume towards node 1.
-     * @return Volume towards node 1 in m^3.
+     * @return Volume towards node 1 in L.
      */
     double getVolume1() const;
 };

@@ -2,11 +2,10 @@
 
 #include "Edge.h"
 #include "Node.h"
-#include "Pump.h"
 
 namespace arch {
 
-FlowRatePump::FlowRatePump(int id, Node* node0, Node* node1, double flowRate) : Pump(), Edge(id, node0, node1), flowRate(flowRate) {}
+FlowRatePump::FlowRatePump(int id, Node* node0, Node* node1, double flowRate) : Edge(id, node0, node1), flowRate(flowRate) {}
 
 void FlowRatePump::setFlowRate(double flowRate) {
     this->flowRate = flowRate;

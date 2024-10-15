@@ -31,7 +31,7 @@ TEST(Chip, testNetwork1) {
     auto c3 = chip.addChannel(node2Id, node3Id, 5, arch::ChannelType::NORMAL);
     auto c4 = chip.addChannel(node3Id, nodeGroundId, 10, arch::ChannelType::NORMAL);
 
-    ASSERT_THROW(chip.getGroundId(), std::invalid_argument);
+    ASSERT_THROW(chip.getGroundIds(), std::invalid_argument);
 
     chip.addGround(nodeGroundId);
 
@@ -40,22 +40,22 @@ TEST(Chip, testNetwork1) {
     int matrixId = 0;
     for (auto& [nodeId, node] : chip.getNodes()) {
         // if node is ground node set the matrixId to -1
-        if (nodeId == chip.getGroundId()) {
+        if (chip.getGroundIds().count(nodeId)) {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), -1));
         } else {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), matrixId));
             matrixId++;
         }
     }
-    std::vector<nodal::IResistance*> channels;
+    std::vector<arch::Channel *> channels;
     for (const auto& [key, channel] : chip.getChannels()) {
         channels.push_back(channel.get());
     }
-    std::vector<nodal::IFlowRatePump*> flowRatePumps;
+    std::vector<arch::FlowRatePump*> flowRatePumps;
     for (const auto& [key, pump] : chip.getFlowRatePumps()) {
         flowRatePumps.push_back(pump.get());
     }
-    std::vector<nodal::IPressurePump*> pressurePumps;
+    std::vector<arch::PressurePump*> pressurePumps;
     for (const auto& [key, pump] : chip.getPressurePumps()) {
         pressurePumps.push_back(pump.get());
     }
@@ -106,22 +106,22 @@ TEST(Chip, testNetwork2) {
     int matrixId = 0;
     for (const auto& [nodeId, node] : chip.getNodes()) {
         // if node is ground node set the matrixId to -1
-        if (nodeId == chip.getGroundId()) {
+        if (chip.getGroundIds().count(nodeId)) {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), -1));
         } else {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), matrixId));
             matrixId++;
         }
     }
-    std::vector<nodal::IResistance*> channels;
+    std::vector<arch::Channel *> channels;
     for (const auto& [key, channel] : chip.getChannels()) {
         channels.push_back(channel.get());
     }
-    std::vector<nodal::IFlowRatePump*> flowRatePumps;
+    std::vector<arch::FlowRatePump*> flowRatePumps;
     for (const auto& [key, pump] : chip.getFlowRatePumps()) {
         flowRatePumps.push_back(pump.get());
     }
-    std::vector<nodal::IPressurePump*> pressurePumps;
+    std::vector<arch::PressurePump*> pressurePumps;
     for (const auto& [key, pump] : chip.getPressurePumps()) {
         pressurePumps.push_back(pump.get());
     }
@@ -171,22 +171,22 @@ TEST(Chip, testNetwork3) {
     int matrixId = 0;
     for (const auto& [nodeId, node] : chip.getNodes()) {
         // if node is ground node set the matrixId to -1
-        if (nodeId == chip.getGroundId()) {
+        if (chip.getGroundIds().count(nodeId)) {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), -1));
         } else {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), matrixId));
             matrixId++;
         }
     }
-    std::vector<nodal::IResistance*> channels;
+    std::vector<arch::Channel *> channels;
     for (const auto& [key, channel] : chip.getChannels()) {
         channels.push_back(channel.get());
     }
-    std::vector<nodal::IFlowRatePump*> flowRatePumps;
+    std::vector<arch::FlowRatePump*> flowRatePumps;
     for (const auto& [key, pump] : chip.getFlowRatePumps()) {
         flowRatePumps.push_back(pump.get());
     }
-    std::vector<nodal::IPressurePump*> pressurePumps;
+    std::vector<arch::PressurePump*> pressurePumps;
     for (const auto& [key, pump] : chip.getPressurePumps()) {
         pressurePumps.push_back(pump.get());
     }
@@ -233,22 +233,22 @@ TEST(Chip, testNetwork4) {
     int matrixId = 0;
     for (const auto& [nodeId, node] : chip.getNodes()) {
         // if node is ground node set the matrixId to -1
-        if (nodeId == chip.getGroundId()) {
+        if (chip.getGroundIds().count(nodeId)) {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), -1));
         } else {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), matrixId));
             matrixId++;
         }
     }
-    std::vector<nodal::IResistance*> channels;
+    std::vector<arch::Channel *> channels;
     for (const auto& [key, channel] : chip.getChannels()) {
         channels.push_back(channel.get());
     }
-    std::vector<nodal::IFlowRatePump*> flowRatePumps;
+    std::vector<arch::FlowRatePump*> flowRatePumps;
     for (const auto& [key, pump] : chip.getFlowRatePumps()) {
         flowRatePumps.push_back(pump.get());
     }
-    std::vector<nodal::IPressurePump*> pressurePumps;
+    std::vector<arch::PressurePump*> pressurePumps;
     for (const auto& [key, pump] : chip.getPressurePumps()) {
         pressurePumps.push_back(pump.get());
     }
@@ -294,22 +294,22 @@ TEST(Chip, testNetwork5) {
     int matrixId = 0;
     for (const auto& [nodeId, node] : chip.getNodes()) {
         // if node is ground node set the matrixId to -1
-        if (nodeId == chip.getGroundId()) {
+        if (chip.getGroundIds().count(nodeId)) {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), -1));
         } else {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), matrixId));
             matrixId++;
         }
     }
-    std::vector<nodal::IResistance*> channels;
+    std::vector<arch::Channel *> channels;
     for (const auto& [key, channel] : chip.getChannels()) {
         channels.push_back(channel.get());
     }
-    std::vector<nodal::IFlowRatePump*> flowRatePumps;
+    std::vector<arch::FlowRatePump*> flowRatePumps;
     for (const auto& [key, pump] : chip.getFlowRatePumps()) {
         flowRatePumps.push_back(pump.get());
     }
-    std::vector<nodal::IPressurePump*> pressurePumps;
+    std::vector<arch::PressurePump*> pressurePumps;
     for (const auto& [key, pump] : chip.getPressurePumps()) {
         pressurePumps.push_back(pump.get());
     }

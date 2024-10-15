@@ -1,8 +1,6 @@
 #include "Simulation.h"
 
 #include <algorithm>
-#include <cmath>
-#include <deque>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -10,33 +8,23 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
-#include "BoundaryHeadEvent.h"
-#include "BoundaryTailEvent.h"
-#include "ChangeInputMixture.h"
-#include "ChangeInputMixtureEvent.h"
-#include "Channel.h"
-#include "ChannelPosition.h"
+#include "../architecture/Channel.h"
+#include "../architecture/ChannelPosition.h"
+#include "../droplet-simulator/Results.h"
+#include "../nodalAnalysis/INode.h"
+#include "../nodalAnalysis/NodalAnalysis.h"
 #include "Droplet.h"
 #include "DropletBoundary.h"
-#include "Fluid.h"
-#include "IFlowRatePump.h"
-#include "INode.h"
-#include "IPressurePump.h"
-#include "IResistance.h"
 #include "Injection.h"
-#include "InjectionEvent.h"
-#include "MergeBifurcationEvent.h"
-#include "MergeChannelEvent.h"
-#include "NodalAnalysis.h"
 #include "ResistanceModels.h"
-#include "Results.h"
-#include "StopSimulationEvent.h"
-#include "TimeStepEvent.h"
-
-#include <cassert>
+#include "events/BoundaryHeadEvent.h"
+#include "events/BoundaryTailEvent.h"
+#include "events/InjectionEvent.h"
+#include "events/MergeBifurcationEvent.h"
+#include "events/MergeChannelEvent.h"
+#include "events/TimeStepEvent.h"
 
 namespace sim {
 
@@ -51,117 +39,27 @@ arch::Chip* Simulation::getChip() {
 }
 
 void Simulation::setContinuousPhase(int fluidId) {
-    continuousPhaseMixtureId = fluids.at(fluidId)->getMixtureId();
-}
-
-int Simulation::getMixtureOfFluid(int fluidId) {
-    for (auto& mixture : mixtures) {
-        if (mixture.getConcentrationOfFluid(fluidId) == 1.0) {
-            return mixture.getId();
-        }
-    }
-    throw std::invalid_argument("No mixture with 1.0 concentration of this fluid exists.");  //should never happen as mixture is added when fluid is added.
-}
-
-void Simulation::fillChipWithContinuousPhaseMixture() {
-    for (auto& [channelId, channel] : chip->getChannels()) {
-        std::deque<std::pair<int, double>> mixture_pos = {std::make_pair(continuousPhaseMixtureId, 1.0)};
-        mixturesInEdge.try_emplace(channelId, mixture_pos);
-    }
-
-    for (auto& [membranId, membrane] : chip->getMembranes()) {
-        std::deque<std::pair<int, double>> mixture_pos = {std::make_pair(continuousPhaseMixtureId, 1.0)};
-        mixturesInEdge.try_emplace(membranId, mixture_pos);
-        mixturesInEdge.try_emplace(membrane->getOrgan()->getId(), mixture_pos);
-    }
-    for (auto& [pumpId, pump] : chip->getFlowRatePumps()) {
-        pump->setMixture(continuousPhaseMixtureId);
-        std::deque<std::pair<int, double>> mixture_pos = {std::make_pair(continuousPhaseMixtureId, 1.0)};
-        mixturesInEdge.try_emplace(pumpId, mixture_pos);
-    }
-    for (auto& [pumpId, pump] : chip->getPressurePumps()) {
-        pump->setMixture(continuousPhaseMixtureId);
-        std::deque<std::pair<int, double>> mixture_pos = {std::make_pair(continuousPhaseMixtureId, 1.0)};
-        mixturesInEdge.try_emplace(pumpId, mixture_pos);
-    }
-}
-
-ChangeInputMixture* Simulation::setChangeInputFluid(int fluidId, int pumpId, double injectionTime) {
-    auto fluid = getFluid(fluidId);
-    auto mixture = fluid->getMixtureId();
-    auto injectionPump = chip->getPump(pumpId);
-
-    auto id = changeInputMixtures.size();
-
-    auto result = changeInputMixtures.insert_or_assign(id, std::make_unique<ChangeInputMixture>(id, mixture, injectionPump, injectionTime));
-
-    return result.first->second.get();
-}
-
-ChangeInputMixture* Simulation::setChangeInputMixture(int mixtureId, int pumpId, double injectionTime) {
-    auto injectionPump = chip->getPump(pumpId);
-
-    auto id = changeInputMixtures.size();
-
-    auto result = changeInputMixtures.insert_or_assign(id, std::make_unique<ChangeInputMixture>(id, mixtureId, injectionPump, injectionTime));
-
-    return result.first->second.get();
-}
-
-ChangeInputMixture* Simulation::getChangeInputFluid(int injectionId) {
-    return changeInputMixtures.at(injectionId).get();
+    continuousPhase = getFluid(fluidId);
 }
 
 void Simulation::setResistanceModel(ResistanceModel modelName) {
     this->resistanceModelName = modelName;
 }
 
-void Simulation::setMembraneResistanceModel(MembraneResistanceModel modelName) {
-    this->membraneResistanceModelName = modelName;
-}
-
 void Simulation::setMaximalAdaptiveTimeStep(double timeStep) {
     maximalAdaptiveTimeStep = timeStep;
 }
 
-Fluid* Simulation::addFluid(double viscosity, double density, double concentration, double molecularSize, double diffusionCoefficient, double saturation) {
-    int id = fluids.size();
-    int mixtureId = mixtures.size();
+Fluid* Simulation::addFluid(double viscosity, double density, double concentration) {
+    auto id = fluids.size();
 
-    auto result = fluids.insert_or_assign(id, std::make_unique<Fluid>(id, viscosity, density, concentration, molecularSize, diffusionCoefficient, saturation, mixtureId));
-
-    addMixture(std::unordered_map<int, double>{{id, concentration}}, mixtureId);
+    auto result = fluids.insert_or_assign(id, std::make_unique<Fluid>(id, viscosity, density, concentration));
 
     return result.first->second.get();
 }
 
 Fluid* Simulation::getFluid(int fluidId) {
     return fluids.at(fluidId).get();
-}
-
-Mixture* Simulation::getMixture(int mixtureId) {
-    return &mixtures.at(mixtureId);
-}
-
-int Simulation::addMixture(std::unordered_map<int, double>&& fluidConcentrations, int id) {
-    if (id == -1) {  // if default id parameter is used
-        id = mixtures.size();
-    }
-
-    double viscosity = 0;
-    double density = 0;
-    double largestMolecularSize = 0;
-    for (auto& [fluidId, concentration] : fluidConcentrations) {
-        viscosity += fluids.at(fluidId)->getViscosity() * concentration;
-        density += fluids.at(fluidId)->getDensity() * concentration;
-        if (fluids.at(fluidId)->getMolecularSize() > largestMolecularSize) {
-            largestMolecularSize = fluids.at(fluidId)->getMolecularSize();
-        }
-    }
-
-    mixtures.emplace_back(id, std::move(fluidConcentrations), viscosity, density, largestMolecularSize);
-
-    return id;
 }
 
 Droplet* Simulation::addDroplet(int fluidId, double volume) {
@@ -171,18 +69,6 @@ Droplet* Simulation::addDroplet(int fluidId, double volume) {
     auto result = droplets.insert_or_assign(id, std::make_unique<Droplet>(id, volume, fluid));
 
     return result.first->second.get();
-}
-
-void Simulation::setSimulationDuration(double duration) {
-    this->simulationDuration = duration;
-}
-
-void Simulation::setSimulationResultTimeStep(double timeStep) {
-    this->simulationResultTimeStep = timeStep;
-}
-
-void Simulation::setSimulationCalculationTimeStep(double timeStep) {
-    this->minSimulationCalcTimeStep = timeStep;
 }
 
 Droplet* Simulation::getDroplet(int dropletId) {
@@ -268,17 +154,24 @@ droplet::SimulationResult Simulation::simulate() {
     int matrixId = 0;
     for (auto& [nodeId, node] : chip->getNodes()) {
         // if node is ground node set the matrixId to -1
-        if (nodeId == chip->getGroundId()) {
+        if (chip->getGroundIds().count(nodeId)) {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), -1));
         } else {
             nodes.insert_or_assign(nodeId, std::make_tuple(node.get(), matrixId));
             matrixId++;
         }
     }
-    std::vector<nodal::IResistance*> channels;
-    for (auto& [key, channel] : chip->getChannels()) {
-        channels.push_back(channel.get());
-    }
+    std::vector<arch::Channel*> channels;
+    for (const auto& c : chip->getChannels())
+        channels.push_back(c.second.get());
+    std::vector<arch::FlowRatePump*> flowRatePumps;
+    for (const auto& p : chip->getFlowRatePumps())
+        flowRatePumps.push_back(p.second.get());
+    std::vector<arch::PressurePump*> pressurePumps;
+    for (const auto& p : chip->getPressurePumps())
+        pressurePumps.push_back(p.second.get());
+
+    unsigned iteration = 0;
 
     // ##########
     // Simulation Loop
@@ -290,21 +183,14 @@ droplet::SimulationResult Simulation::simulate() {
     // * search for next event (break if no event is left)
     // * move droplets
     // * perform event
-    double simulationResultTimeCounter = 0;
-    simulationInProgress = true;
-    while (simulationInProgress) {
-        // update droplet resistances (in the first iteration no  droplets are inside the network)
-        updateChannelResistances();
-        updateDropletResistances();
+    while (true) {
 
-        std::vector<nodal::IFlowRatePump*> flowRatePumps;
-        for (auto& [key, pump] : chip->getFlowRatePumps()) {
-            flowRatePumps.push_back(pump.get());
+        if (iteration >= maxIterations) {
+            throw "Max iterations exceeded.";
         }
-        std::vector<nodal::IPressurePump*> pressurePumps;
-        for (auto& [key, pump] : chip->getPressurePumps()) {
-            pressurePumps.push_back(pump.get());
-        }
+
+        // update droplet resistances (in the first iteration no  droplets are inside the network)
+        updateDropletResistances();
 
         // compute nodal analysis
         nodal::conductNodalAnalysis(nodes, channels, pressurePumps, flowRatePumps);
@@ -329,27 +215,6 @@ droplet::SimulationResult Simulation::simulate() {
             droplet->updateBoundaries(*chip, slipFactor);
         }
 
-        // compute internal minimal timestep
-        double minTime = std::numeric_limits<double>::max();
-        for (auto& [key, channel] : chip->getChannels()) {
-            auto flowrate = channel->getFlowRate();
-            auto length = channel->getLength();
-            auto time = length * channel->getArea() / std::abs(flowrate);
-            if (time < minTime) {
-                minTime = time;
-            }
-        }
-        //std::cout << "minTime " << minTime << std::endl;
-        if (minSimulationCalcTimeStep > simulationResultTimeStep) {
-            minSimulationCalcTimeStep = simulationResultTimeStep;
-        }
-        if (minTime < minSimulationCalcTimeStep) {
-            internalSimulationTimeStep = minTime - 0.5e-10;  // 0.5e-10 factor to avoid pos larger than 1.0 due to rounding errors
-        } else {
-            internalSimulationTimeStep = minSimulationCalcTimeStep;
-        }
-        assert(internalSimulationTimeStep <= simulationResultTimeStep && internalSimulationTimeStep <= minSimulationCalcTimeStep);
-
         // merging:
         // 1) Two boundaries merge inside a single channel:
         //      1) one boundary is faster than the other and would "overtake" the boundary
@@ -363,17 +228,10 @@ droplet::SimulationResult Simulation::simulate() {
         //      * possible solution is to normally compute a BoundaryHeadEvent and then check if it is actually a merge event (in case of a merge event the channels don't have to be switched since the boundary is merged with the other droplet)
 
         // store simulation results of current state
-        if (simulationResultTimeCounter <= 0) {
-            storeSimulationResults(result);
-            if (changeInputMixtures.empty() || !injections.empty()) {
-                simulationResultTimeCounter = 0;
-            } else {  // for continuous fluid simulation without droplets only store simulation time steps
-                simulationResultTimeCounter = simulationResultTimeStep;
-            }
-        }
+        storeSimulationResults(result);
 
         // compute events
-        auto events = computeEvents(simulationResultTimeCounter);
+        auto events = computeEvents();
 
         // sort events
         // closest events in time with the highest priority come first
@@ -392,65 +250,27 @@ droplet::SimulationResult Simulation::simulate() {
             break;
         }
 
-        auto nextEventTime = nextEvent->getTime();
-        currTime += nextEventTime;
-        simulationResultTimeCounter -= nextEventTime;
-
-        if (nextEventTime > 0.0) {
-            // move droplets until event is reached
-            moveDroplets(nextEventTime);
-
-            // update fluid concentrations in channels
-            //updateFluidConcentrationsInChannels(nextEventTime);
-            if (!changeInputMixtures.empty()) {
-                calculateNewMixtures(nextEventTime);
-            }
-        }
+        // move droplets until event is reached
+        currTime += nextEvent->getTime();
+        moveDroplets(nextEvent->getTime());
 
         // perform event (inject droplet, move droplet to next channel, block channel, merge channels)
         // only one event at a time is performed in order to ensure a correct state
         // hence, it might happen that the next time for an event is 0 (e.g., when  multiple events happen at the same time)
-        assert(nextEventTime >= 0.0);
         nextEvent->performEvent();
-    }
 
-    storeSimulationResults(result);  //store simulation parameters once more at the end of the simulation (even if this is not part of the simulation result timestep)
+        iteration++;
+    }
 
     return result;
 }
 
 void Simulation::initialize() {
-    auto* continuousPhaseMixture = &mixtures.at(continuousPhaseMixtureId);
     // set resistance model
     if (resistanceModelName == ResistanceModel::ONE_D_MODEL) {
-        resistanceModel = std::make_unique<ResistanceModel0>(continuousPhaseMixture->getViscosity());
+        resistanceModel = std::make_unique<ResistanceModel0>(continuousPhase->getViscosity());
     } else if (resistanceModelName == ResistanceModel::TEST_MODEL) {
         resistanceModel = std::make_unique<ResistanceModel1>();
-    } else if (resistanceModelName == ResistanceModel::ONE_D_CONTINUOUS_MODEL) {
-        resistanceModel = std::make_unique<ResistanceModel2>(continuousPhaseMixture->getViscosity());
-    }
-
-    // set membrane resistance model
-    if (membraneResistanceModelName == MembraneResistanceModel::MODEL_0) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel0>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_1) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel1>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_2) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel2>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_3) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel3>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_4) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel4>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_5) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel5>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_6) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel6>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_7) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel7>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_8) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel8>();
-    } else if (membraneResistanceModelName == MembraneResistanceModel::MODEL_9) {
-        membraneResistanceModel = std::make_unique<MembraneResistanceModel9>();
     }
 
     // compute channel resistances
@@ -458,33 +278,6 @@ void Simulation::initialize() {
         double resistance = resistanceModel->getChannelResistance(channel.get());
         channel->setChannelResistance(resistance);
         channel->setDropletResistance(0.0);
-    }
-
-    fillChipWithContinuousPhaseMixture();
-}
-
-double Simulation::getAverageViscosityInChannel(int channelId) {
-    double avgViscosity = 0.0;
-    double prevPos = 0.0;
-    for (auto it = mixturesInEdge.at(channelId).crbegin(); it != mixturesInEdge.at(channelId).crend(); it++) {
-        auto& [mixtureId, pos] = *it;
-        //std::cout << "viscosity" << mixtures.at(mixtureId).getViscosity() << "pos " << pos << "prevPos " << prevPos << "(pos - prevPos)" << pos - prevPos << std::endl;
-        avgViscosity += mixtures.at(mixtureId).getViscosity() * (pos - prevPos);
-        prevPos = pos;
-    }
-    //std::cout << "avgViscosity" << avgViscosity << std::endl;
-    return avgViscosity;
-}
-
-void Simulation::updateChannelResistances() {
-    // the channel resistances are only updated if the simulation resistance model considers the average viscosity of all fluids in a channel (instead of just the continuous phase viscosity that does not change during the simulation)
-    if (resistanceModelName == ResistanceModel::ONE_D_CONTINUOUS_MODEL) {
-        // set correct droplet resistances
-        for (auto& [key, channel] : chip->getChannels()) {
-            double avgViscosityInChannel = getAverageViscosityInChannel(key);
-            double resistance = resistanceModel->getChannelResistance(channel.get(), avgViscosityInChannel);
-            channel->setChannelResistance(resistance);
-        }
     }
 }
 
@@ -505,7 +298,7 @@ void Simulation::updateDropletResistances() {
     }
 }
 
-std::vector<std::unique_ptr<Event>> Simulation::computeEvents(double simulationResultTimeCounter) {
+std::vector<std::unique_ptr<Event>> Simulation::computeEvents() {
     // events
     std::vector<std::unique_ptr<Event>> events;
 
@@ -515,18 +308,6 @@ std::vector<std::unique_ptr<Event>> Simulation::computeEvents(double simulationR
         if (injection->getDroplet()->getDropletState() == DropletState::INJECTION) {
             events.push_back(std::make_unique<InjectionEvent>(injectionTime - currTime, *injection));
         }
-    }
-
-    // continuous injection events
-    for (auto& [key, changeInputMixture] : changeInputMixtures) {
-        if (!changeInputMixture->wasPerformed()) {
-            double injectionTime = changeInputMixture->getInjectionTime();
-            events.push_back(std::make_unique<ChangeInputMixtureEvent>(injectionTime - currTime, *changeInputMixture));
-        }
-    }
-
-    if (!changeInputMixtures.empty()) {
-        events.push_back(std::make_unique<StopSimulationEvent>(simulationDuration - currTime, *this));
     }
 
     // define maps that are used for detecting merging inside channels
@@ -565,7 +346,9 @@ std::vector<std::unique_ptr<Event>> Simulation::computeEvents(double simulationR
 
                 if (mergeDroplet == nullptr) {
                     // no merging will happen => BoundaryHeadEvent
-                    events.push_back(std::make_unique<BoundaryHeadEvent>(time, *droplet, *boundary, *chip));
+                    if (!boundary->isInWaitState()) {
+                        events.push_back(std::make_unique<BoundaryHeadEvent>(time, *droplet, *boundary, *chip));
+                    }
                 } else {
                     // merging of the actual droplet with the merge droplet will happen => MergeBifurcationEvent
                     events.push_back(std::make_unique<MergeBifurcationEvent>(time, *droplet, *boundary, *mergeDroplet, *this));
@@ -642,12 +425,8 @@ std::vector<std::unique_ptr<Event>> Simulation::computeEvents(double simulationR
     }
 
     // time step event
-    if ((dropletsAtBifurcation && maximalAdaptiveTimeStep > 0)) {
+    if (dropletsAtBifurcation && maximalAdaptiveTimeStep > 0) {
         events.push_back(std::make_unique<TimeStepEvent>(maximalAdaptiveTimeStep));
-    }
-
-    if (!changeInputMixtures.empty()) {  //only simulate all minimal timesteps if continuous fluid simulation
-        events.push_back(std::make_unique<TimeStepEvent>(std::min(simulationResultTimeCounter, internalSimulationTimeStep)));
     }
 
     return events;
@@ -669,325 +448,6 @@ void Simulation::moveDroplets(double timeStep) {
     }
 }
 
-double Simulation::getPumpOutflowVolume(int nodeId, double flowRate, double timeStep) {
-    double totalArea = 0.0;
-    double totalVolume = 0.0;
-    for (auto channel : chip->getChannelsAtNode(nodeId)) {
-        totalArea += channel->getArea();
-        totalVolume += channel->getVolume();
-    }
-    double movedDistance = (std::abs(flowRate) * timeStep) / totalVolume;
-    double outflowVolume = movedDistance * totalArea;
-    return outflowVolume;
-}
-
-void Simulation::calculateNewMixtures(double timeStep) {
-    /* 
-    move positions and calculate mixture inflow at nodes 
-    */
-    struct MixtureInflow {
-        int mixtureId;
-        double inflowVolume;
-    };
-    std::unordered_map<int, std::vector<MixtureInflow>> mixtureInflowAtNode;  // <nodeId <mixtureId, inflowVolume>>
-    std::unordered_map<int, double> totalInflowVolumeAtNode;
-
-    for (auto& [nodeId, node] : chip->getNodes()) {
-        // pumps
-        for (auto& [key, pressurePump] : chip->getPressurePumps()) {
-            auto flowRate = pressurePump->getFlowRate();
-            auto pumpNodeId = flowRate > 0.0 ? pressurePump->getNode1()->getId() : pressurePump->getNode0()->getId();
-            if (pumpNodeId == nodeId) {
-                double inflowVolume = getPumpOutflowVolume(nodeId, flowRate, timeStep);
-                MixtureInflow mixtureInflow = {pressurePump->getMixtureId(), inflowVolume};
-                mixtureInflowAtNode[nodeId].push_back(mixtureInflow);
-                auto [iterator, inserted] = totalInflowVolumeAtNode.try_emplace(nodeId, inflowVolume);
-                if (!inserted) {
-                    iterator->second = iterator->second + inflowVolume;
-                }
-            }
-        }
-        for (auto& [key, flowRatePump] : chip->getFlowRatePumps()) {
-            auto flowRate = flowRatePump->getFlowRate();
-            auto pumpNodeId = flowRate > 0.0 ? flowRatePump->getNode1()->getId() : flowRatePump->getNode0()->getId();
-            if (pumpNodeId == nodeId) {
-                double inflowVolume = getPumpOutflowVolume(nodeId, flowRate, timeStep);
-                MixtureInflow mixtureInflow = {flowRatePump->getMixtureId(), inflowVolume};
-                mixtureInflowAtNode[nodeId].push_back(mixtureInflow);
-                auto [iterator, inserted] = totalInflowVolumeAtNode.try_emplace(nodeId, inflowVolume);
-                if (!inserted) {
-                    iterator->second = iterator->second + inflowVolume;
-                }
-            }
-        }
-
-        // channels
-        for (auto channel : chip->getChannelsAtNode(nodeId)) {
-            // only consider channels where there is an inflow at this node (= where the flow direction is into the node)
-            auto flowRate = channel->getFlowRate();
-            if ((flowRate > 0.0 && channel->getNode1()->getId() == nodeId) || (flowRate < 0.0 && channel->getNode0()->getId() == nodeId)) {
-                for (auto& [mixtureId, endPos] : mixturesInEdge.at(channel->getId())) {
-                    double movedDistance = (std::abs(flowRate) * timeStep) / channel->getVolume();
-                    double newEndPos = 0.0;
-                    double inflowVolume = 0.0;
-                    double channelArea = channel->getArea();
-                    if (flowRate < 0) {
-                        newEndPos = std::max(0.0, endPos - movedDistance);
-                        inflowVolume = (newEndPos * -1) * channelArea + movedDistance * channelArea;
-                    } else {
-                        newEndPos = std::min(endPos + movedDistance, 1.0);
-                        inflowVolume = (newEndPos - 1.0) * channelArea + movedDistance * channelArea;
-                    }
-                    endPos = newEndPos;
-                    if ((flowRate > 0 && newEndPos == 1.0) || (flowRate < 0 && newEndPos == 0.0)) {
-                        // fluid flows into node, add to mixture inflow
-                        MixtureInflow mixtureInflow = {mixtureId, inflowVolume};
-                        mixtureInflowAtNode[nodeId].push_back(mixtureInflow);
-                        auto [iterator, inserted] = totalInflowVolumeAtNode.try_emplace(nodeId, inflowVolume);
-                        if (!inserted) {
-                            iterator->second = iterator->second + inflowVolume;
-                        }
-                    }
-                }
-                // with a negative flow-rate, the last mixture in the channel spans from pos 0.0 to xy
-                // therefore the outlow at the 0 node must also calculated from pos 0.0
-                if (flowRate < 0.0 && channel->getNode0()->getId() == nodeId) {
-                    auto& [mixtureId, endPos] = mixturesInEdge.at(channel->getId()).back();
-                    double movedDistance = (std::abs(flowRate) * timeStep) / channel->getVolume();
-                    double newEndPos = 0.0;
-                    double inflowVolume = 0.0;
-                    double channelArea = channel->getArea();
-                    if (flowRate < 0) {
-                        newEndPos = movedDistance;
-                        inflowVolume = movedDistance * channelArea;
-                    }
-
-                    // fluid flows into node, add to mixture inflow
-                    MixtureInflow mixtureInflow = {mixtureId, inflowVolume};
-                    mixtureInflowAtNode[nodeId].push_back(mixtureInflow);
-                    auto [iterator, inserted] = totalInflowVolumeAtNode.try_emplace(nodeId, inflowVolume);
-                    if (!inserted) {
-                        iterator->second = iterator->second + inflowVolume;
-                    }
-                }
-            }
-        }
-
-        // membranes & organs
-        // only update fluid positions
-        // contributes to outflow at node only indirectly through the fluid concentration exchange with the connected channel
-        for (auto& membrane : chip->getMembranesAtNode(nodeId)) {
-            auto* organ = membrane->getOrgan();
-            auto* channel = membrane->getChannel();
-            // mixtures move through the organ at the same speed as through the connected channel
-            // this is an abstraction to get time-accurate results
-            // in reality, there is no flow rate in the organ
-            auto flowRate = channel->getFlowRate();
-            if ((flowRate > 0.0 && channel->getNode1()->getId() == nodeId) || (flowRate < 0.0 && channel->getNode0()->getId() == nodeId)) {
-                for (auto& [mixtureId, endPos] : mixturesInEdge.at(membrane->getId())) {
-                    double movedDistance = (std::abs(flowRate) * timeStep) / channel->getVolume();
-                    double newEndPos = 0.0;
-                    if (flowRate < 0) {
-                        newEndPos = std::max(0.0, endPos - movedDistance);
-                    } else {
-                        newEndPos = std::min(endPos + movedDistance, 1.0);
-                    }
-                    endPos = newEndPos;
-                }
-                for (auto& [mixtureId, endPos] : mixturesInEdge.at(organ->getId())) {
-                    double movedDistance = (std::abs(flowRate) * timeStep) / channel->getVolume();
-                    double newEndPos = 0.0;
-                    if (flowRate < 0) {
-                        newEndPos = std::max(0.0, endPos - movedDistance);
-                    } else {
-                        newEndPos = std::min(endPos + movedDistance, 1.0);
-                    }
-                    endPos = newEndPos;
-                }
-            }
-        }
-    }
-
-    /*
-     calculate mixture outflow at node from inflow
-     */
-    std::unordered_map<int, int> mixtureOutflowAtNode;
-    for (auto& [nodeId, mixtureInflowList] : mixtureInflowAtNode) {
-        std::unordered_map<int, double> newFluidConcentrations;
-        for (auto& mixtureInflow : mixtureInflowList) {
-            for (auto& [fluidId, oldConcentration] : mixtures.at(mixtureInflow.mixtureId).getFluidConcentrations()) {
-                double newConcentration = oldConcentration * mixtureInflow.inflowVolume / totalInflowVolumeAtNode.at(nodeId);
-                auto [iterator, inserted] = newFluidConcentrations.try_emplace(fluidId, newConcentration);
-                if (!inserted) {
-                    iterator->second = iterator->second + newConcentration;
-                }
-            }
-        }
-
-        int newMixtureId = addMixture(std::move(newFluidConcentrations));
-        mixtureOutflowAtNode.try_emplace(nodeId, newMixtureId);
-    }
-
-    /* 
-    add outflow as inflow to edges
-    */
-    for (auto& [nodeId, node] : chip->getNodes()) {
-        // channels
-        for (auto& channel : chip->getChannelsAtNode(nodeId)) {
-            // check if edge is an outflow edge to this node
-            auto flowRate = channel->getFlowRate();
-            if ((flowRate > 0.0 && channel->getNode0()->getId() == nodeId) || (flowRate < 0.0 && channel->getNode1()->getId() == nodeId)) {
-                double newPos = std::abs(flowRate) * timeStep / channel->getVolume();
-                assert(newPos <= 1.0 && newPos >= 0.0);
-
-                bool oldEqualsNewConcentration = true;
-                auto& oldFluidConcentrations = mixtures.at(mixturesInEdge.at(channel->getId()).back().first).getFluidConcentrations();
-                if (mixtureOutflowAtNode.count(nodeId)) {
-                    if (flowRate < 0.0) {
-                        mixturesInEdge.at(channel->getId()).push_front(std::make_pair(mixtureOutflowAtNode.at(nodeId), 1.0));
-                    } else {
-                        mixturesInEdge.at(channel->getId()).push_back(std::make_pair(mixtureOutflowAtNode.at(nodeId), newPos));
-                    }
-                }
-            }
-        }
-
-        // membranes & organs
-        for (auto& membrane : chip->getMembranesAtNode(nodeId)) {
-            auto* organ = membrane->getOrgan();
-            auto* membraneChannel = membrane->getChannel();
-            double channelFlowRate = membrane->getChannel()->getFlowRate();
-            // check if edge is an outflow edge to this node
-            if ((channelFlowRate > 0.0 && organ->getNode0()->getId() == nodeId) || (channelFlowRate < 0.0 && organ->getNode1()->getId() == nodeId)) {
-                double movedDistance = (std::abs(channelFlowRate) * timeStep) / membraneChannel->getVolume();
-                double newEndPos = movedDistance;
-                assert(newEndPos <= 1.0 && newEndPos >= 0.0);
-                // copy the mixture that outflows the organ as new mixture at the inflow (to ensure mass conservation)
-                // concentration that diffuses through membrane from new inflow is added later (see below)
-                auto& currMixtureOrgan = mixtures.at(mixturesInEdge.at(organ->getId()).front().first);
-                std::unordered_map<int, double> newFluidConcentrations(currMixtureOrgan.getFluidConcentrations());
-                int newMixtureId = addMixture(std::move(newFluidConcentrations));
-
-                if (mixtureOutflowAtNode.count(nodeId)) {
-                    if (channelFlowRate < 0.0) {
-                        mixturesInEdge.at(membrane->getId()).push_front(std::make_pair(newMixtureId, 1.0));
-                        mixturesInEdge.at(organ->getId()).push_front(std::make_pair(newMixtureId, 1.0));
-                    } else {
-                        mixturesInEdge.at(membrane->getId()).push_back(std::make_pair(newMixtureId, newEndPos));
-                        mixturesInEdge.at(organ->getId()).push_back(std::make_pair(newMixtureId, newEndPos));
-                    }
-                }
-            }
-        }
-    }
-
-    /*
-    calculate exchange between organ and channel through membranes and change mixtures accordingly
-    */
-    for (auto& [nodeId, node] : chip->getNodes()) {
-        for (auto membrane : chip->getMembranesAtNode(nodeId)) {
-            auto* organ = membrane->getOrgan();
-            // mixtures move through the organ at the same speed as through the connected channel
-            // this is an abstraction to get time-accurate results
-            // in reality, there is no flow rate in the organ
-            auto* channel = membrane->getChannel();
-            double channelFlowRate = channel->getFlowRate();
-            if ((channelFlowRate > 0.0 && organ->getNode1()->getId() == nodeId) || (channelFlowRate < 0.0 && organ->getNode0()->getId() == nodeId)) {
-                int mixturesInChannelSize = mixturesInEdge.at(channel->getId()).size();
-                int mixturesInOrganSize = mixturesInEdge.at(organ->getId()).size();
-                assert(mixturesInChannelSize == mixturesInOrganSize);
-                int dequeIdx = mixturesInChannelSize - 1;
-                double startPos = 0.0;
-                for (auto it = mixturesInEdge.at(organ->getId()).rbegin(); it != mixturesInEdge.at(organ->getId()).rend(); it++) {
-                    auto& [oldOrganMixtureId, endPos] = *it;
-                    double mixtureLengthAbs = (endPos - startPos) * channel->getLength();
-
-                    auto& currMixtureOrgan = mixtures.at(oldOrganMixtureId);
-                    std::unordered_map<int, double> newFluidConcentrationsOrgan(currMixtureOrgan.getFluidConcentrations());
-                    int newOrganMixtureId = addMixture(std::move(newFluidConcentrationsOrgan));
-                    oldOrganMixtureId = newOrganMixtureId;
-
-                    auto& currMixtureChannel = mixtures.at(mixturesInEdge.at(channel->getId()).at(dequeIdx).first);
-                    std::unordered_map<int, double> newFluidConcentrationsChannel(currMixtureChannel.getFluidConcentrations());
-                    int newChannelMixtureId = addMixture(std::move(newFluidConcentrationsChannel));
-                    mixturesInEdge.at(channel->getId()).at(dequeIdx).first = newChannelMixtureId;
-
-                    for (auto& [fluidId, fluid] : fluids) {
-                        double area = membrane->getWidth() * mixtureLengthAbs;
-                        double resistance = membraneResistanceModel->getMembraneResistance(membrane, fluids.at(fluidId).get(), area);
-                        double fluidSaturation = fluids.at(fluidId)->getSaturation();
-                        if (fluidSaturation != 0.0 && mixtureLengthAbs > 0.0) {
-                            double concentrationChannel = mixtures.at(newChannelMixtureId).getConcentrationOfFluid(fluidId);
-                            double concentrationOrgan = mixtures.at(newOrganMixtureId).getConcentrationOfFluid(fluidId);
-
-                            // positive flux defined to go from channel to organ
-                            // negative flux defined to go from organ to channel
-                            double concentrationDifference = (concentrationChannel - concentrationOrgan);
-                            double concentrationChangeMol = membrane->getConcentrationChange(resistance, timeStep, concentrationDifference, currTime);
-
-                            double concentrationChangeOrgan = concentrationChangeMol / (mixtureLengthAbs * organ->getWidth() * organ->getHeight());
-                            double concentrationChangeChannel = concentrationChangeMol * -1 / (mixtureLengthAbs * channel->getWidth() * channel->getHeight());
-                            mixtures.at(newOrganMixtureId).changeFluidConcentration(fluidId, concentrationChangeOrgan);
-                            mixtures.at(newChannelMixtureId).changeFluidConcentration(fluidId, concentrationChangeChannel);
-                        }
-                    }
-                    startPos = endPos;
-                    dequeIdx--;
-                }
-            }
-        }
-    }
-
-    /*
-    remove fluids that have outflowed their edge
-    */
-    for (auto& [nodeId, node] : chip->getNodes()) {
-        // channels
-        for (auto& channel : chip->getChannelsAtNode(nodeId)) {
-            auto count = 0;  // to not remove the 1.0 fluid if there is only one
-            for (auto& [mixtureId, endPos] : mixturesInEdge.at(channel->getId())) {
-                //remove mixtures that completely flow out of channel (only 1 fluid with pos 1.0 or 0.0 left)
-                if (endPos == 0.0) {
-                    if (count != 0) {
-                        mixturesInEdge.at(channel->getId()).pop_back();
-                    }
-                    count++;
-                }
-                if (endPos == 1.0) {
-                    if (count != 0) {
-                        mixturesInEdge.at(channel->getId()).pop_front();
-                    }
-                    count++;
-                }
-            }
-        }
-        // membranes and organs
-        for (auto& membrane : chip->getMembranesAtNode(nodeId)) {
-            auto count = 0;  // to not remove the 1.0 fluid if there is only one
-            auto* organ = membrane->getOrgan();
-            auto* channel = membrane->getChannel();
-
-            for (auto& [mixtureId, endPos] : mixturesInEdge.at(membrane->getId())) {
-                //count mixtures that completely flow out of channel (only 1 fluid with pos 1.0 left)
-                if (endPos == 0.0) {
-                    if (count != 0) {
-                        mixturesInEdge.at(membrane->getId()).pop_back();
-                        mixturesInEdge.at(membrane->getOrgan()->getId()).pop_back();
-                    }
-                    count++;
-                }
-                if (endPos == 1.0) {
-                    if (count != 0) {
-                        mixturesInEdge.at(membrane->getId()).pop_front();
-                        mixturesInEdge.at(membrane->getOrgan()->getId()).pop_front();
-                    }
-                    count++;
-                }
-            }
-        }
-    }
-}
-
 void Simulation::storeSimulationParameters(droplet::SimulationResult& result) {
     // chip name
     result.chip.name = chip->getName();
@@ -995,16 +455,6 @@ void Simulation::storeSimulationParameters(droplet::SimulationResult& result) {
     // channel
     for (const auto& [key, channel] : chip->getChannels()) {
         result.chip.channels.try_emplace(key, channel->getId(), channel->getName(), channel->getNode0()->getId(), channel->getNode1()->getId(), channel->getWidth(), channel->getHeight(), channel->getLength(), static_cast<droplet::ChannelType>(static_cast<int>(channel->getChannelType())));
-    }
-
-    // membrane
-    for (const auto& [key, membrane] : chip->getMembranes()) {
-        result.chip.membranes.try_emplace(key, membrane->getId(), membrane->getName(), membrane->getNode0()->getId(), membrane->getNode1()->getId(), membrane->getWidth(), membrane->getHeight(), membrane->getLength(), membrane->getPoreRadius(), membrane->getPorosity(), membrane->getChannel()->getId(), membrane->getOrgan()->getId());
-    }
-
-    // organ
-    for (const auto& [key, organ] : chip->getOrgans()) {
-        result.chip.organs.try_emplace(key, organ->getId(), organ->getName(), organ->getNode0()->getId(), organ->getNode1()->getId(), organ->getWidth(), organ->getHeight(), organ->getLength());
     }
 
     // flow rate pump
@@ -1019,7 +469,7 @@ void Simulation::storeSimulationParameters(droplet::SimulationResult& result) {
 
     // fluids
     for (const auto& [key, fluid] : fluids) {
-        auto [value, success] = result.fluids.try_emplace(key, fluid->getId(), fluid->getName(), fluid->getViscosity(), fluid->getDensity(), fluid->getConcentration(), fluid->getMolecularSize(), fluid->getDiffusionCoefficient(), fluid->getSaturation());
+        auto [value, success] = result.fluids.try_emplace(key, fluid->getId(), fluid->getName(), fluid->getViscosity(), fluid->getDensity(), fluid->getConcentration());
 
         //mixed fluids
         for (const auto mixedFluid : fluid->getMixedFluids()) {
@@ -1042,11 +492,7 @@ void Simulation::storeSimulationParameters(droplet::SimulationResult& result) {
         result.injections.try_emplace(key, injection->getId(), injection->getDroplet()->getId(), injection->getInjectionTime(), injection->getInjectionPosition().getChannel()->getId(), injection->getInjectionPosition().getPosition());
     }
 
-    for (const auto& [key, continuousInjection] : changeInputMixtures) {
-        result.continuousInjections.try_emplace(key, continuousInjection->getId(), continuousInjection->getMixtureId(), continuousInjection->getInjectionTime(), continuousInjection->getInjectionPump()->getId());
-    }
-
-    result.continuousPhaseMixtureId = continuousPhaseMixtureId;
+    result.continuousPhaseId = continuousPhase->getId();
     result.maximalAdaptiveTimeStep = maximalAdaptiveTimeStep;
 
     switch (resistanceModelName) {
@@ -1056,49 +502,13 @@ void Simulation::storeSimulationParameters(droplet::SimulationResult& result) {
         case ResistanceModel::TEST_MODEL:
             result.resistanceModel = 1;
             break;
-        case ResistanceModel::ONE_D_CONTINUOUS_MODEL:
-            result.resistanceModel = 2;
-            break;
-    }
-
-    switch (membraneResistanceModelName) {
-        case MembraneResistanceModel::MODEL_0:
-            result.membraneResistanceModel = 0;
-            break;
-        case MembraneResistanceModel::MODEL_1:
-            result.membraneResistanceModel = 1;
-            break;
-        case MembraneResistanceModel::MODEL_2:
-            result.membraneResistanceModel = 2;
-            break;
-        case MembraneResistanceModel::MODEL_3:
-            result.membraneResistanceModel = 3;
-            break;
-        case MembraneResistanceModel::MODEL_4:
-            result.membraneResistanceModel = 4;
-            break;
-        case MembraneResistanceModel::MODEL_5:
-            result.membraneResistanceModel = 5;
-            break;
-        case MembraneResistanceModel::MODEL_6:
-            result.membraneResistanceModel = 6;
-            break;
-        case MembraneResistanceModel::MODEL_7:
-            result.membraneResistanceModel = 7;
-            break;
-        case MembraneResistanceModel::MODEL_8:
-            result.membraneResistanceModel = 8;
-            break;
-        case MembraneResistanceModel::MODEL_9:
-            result.membraneResistanceModel = 9;
-            break;
     }
 }
 
 void Simulation::storeSimulationResults(droplet::SimulationResult& result) {
     // add new fluids if present (try_emplace does nothing if key is already present)
     for (const auto& [key, fluid] : fluids) {
-        auto [value, success] = result.fluids.try_emplace(key, fluid->getId(), fluid->getName(), fluid->getViscosity(), fluid->getDensity(), fluid->getConcentration(), fluid->getMolecularSize(), fluid->getDiffusionCoefficient(), fluid->getSaturation());
+        auto [value, success] = result.fluids.try_emplace(key, fluid->getId(), fluid->getName(), fluid->getViscosity(), fluid->getDensity(), fluid->getConcentration());
 
         //mixed fluids
         if (success) {
@@ -1106,10 +516,6 @@ void Simulation::storeSimulationResults(droplet::SimulationResult& result) {
                 value->second.mixedFluidIds.push_back(mixedFluid->getId());
             }
         }
-
-        //store inital mixtures that consist of 100% of one fluid
-        auto& mixture = mixtures.at(fluid->getMixtureId());
-        result.mixtures.try_emplace(mixture.getId(), mixture.getId(), mixture.getFluidConcentrations(), mixture.getViscosity(), mixture.getDensity(), mixture.getLargestMolecularSize());
     }
 
     // add new droplets if present (try_emplace does nothing if key is already present)
@@ -1163,18 +569,6 @@ void Simulation::storeSimulationResults(droplet::SimulationResult& result) {
             value->second.channelIds.emplace_back(channel->getId());
         }
     }
-
-    //fluidInEdge
-    for (auto& [edgeId, elem] : mixturesInEdge) {
-        std::deque<std::pair<int, double>> mixturePos = elem;
-        state.mixturesInEdge.try_emplace(edgeId, mixturePos);
-
-        //only store mixtures that are used
-        for (auto& [mixtureId, _mixturePos] : mixturePos) {
-            auto& mixture = mixtures.at(mixtureId);
-            result.mixtures.try_emplace(mixture.getId(), mixture.getId(), mixture.getFluidConcentrations(), mixture.getViscosity(), mixture.getDensity(), mixture.getLargestMolecularSize());
-        }
-    }
 }
 
 Fluid* Simulation::mixFluids(int fluid0Id, double volume0, int fluid1Id, double volume1) {
@@ -1199,7 +593,7 @@ Fluid* Simulation::mixFluids(int fluid0Id, double volume0, int fluid1Id, double 
     double concentration = ratio0 * fluid0->getConcentration() + ratio1 * fluid1->getConcentration();
 
     // add new fluid
-    auto newFluid = addFluid(viscosity, density, concentration, fluid0->getMolecularSize(), fluid0->getDiffusionCoefficient(), fluid0->getSaturation());
+    auto newFluid = addFluid(viscosity, density, concentration);
 
     //add previous fluids
     newFluid->addMixedFluid(fluid0);
@@ -1235,10 +629,6 @@ Droplet* Simulation::mergeDroplets(int droplet0Id, int droplet1Id) {
     newDroplet->addMergedDroplet(droplet1);
 
     return newDroplet;
-}
-
-void Simulation::stopSimulation() {
-    simulationInProgress = false;
 }
 
 }  // namespace sim

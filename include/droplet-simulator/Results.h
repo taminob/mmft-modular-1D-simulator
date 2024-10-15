@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <deque>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -87,45 +86,16 @@ struct Fluid {
     double viscosity;                ///< Viscosity of the fluid in Pa s.
     double density;                  ///< Density of the fluid in kg/m^3.
     double concentration;            ///< Concentration of the fluid in % (between 0.0 and 1.0).
-    double molecularSize;            ///< Molecular size in m^3.
-    double diffusionCoefficient;     ///< Diffusion coefficient of the fluid in m^2/s
-    double saturation;               ///< Saturation value to translate the concentration in an actual concentration value [mol/m^3]
 
     /**
      * @brief Constructs a fluid.
-     * 
-     * @param id Unique identifier of the fluid.
-     * @param name Name of the fluid
-     * @param viscosity Viscosity of the fluid in Pas.
-     * @param density Density of the fluid in kg/m^3.
-     * @param concentration Concentration of the fluid in % (between 0.0 and 1.0).
-     * @param molecularSize Molecular size in m^3.
-     * @param diffusionCoefficient Diffusion coefficient of the fluid in m^2/s
-     * @param saturation Saturation value to translate the concentration in an actual concentration value [mol/m^3]
+     * @param[in] id Unique identifier of the fluid.
+     * @param[in] name Name of the channel.
+     * @param[in] viscosity Viscosity of the fluid in Pas.
+     * @param[in] density Density of the fluid in kg/m^3.
+     * @param[in] concentration Concentration of the fluid in % (between 0.0 and 1.0).
      */
-    Fluid(int id, std::string name, double viscosity, double density, double concentration, double molecularSize, double diffusionCoefficient, double saturation);
-};
-
-/**
- * @brief Struct to contain the mixture specified by id, fluids and their concentration values, viscosity, density and largest molecular size
- */
-struct Mixture {
-    int id;                                               ///< Unique identifier of the mixture
-    std::unordered_map<int, double> fluidConcentrations;  ///< Map of fluid id and its volume concentration in % (between 0.0 and 1.0)
-    double viscosity;                                     ///< Viscosity of the mixture in Pa s.
-    double density;                                       ///< Density of the mixture in in kg/m^3.
-    double largestMolecularSize;                          ///< Largest molecular size in that mixture in molecular size in m^3.
-
-    /**
-     * @brief Construct a mixture
-     * 
-     * @param id Unique identifier of the mixture
-     * @param fluidConcentrations Map of fluid id and its volume concentration in % (between 0.0 and 1.0) 
-     * @param viscosity Viscosity of the mixture in Pa s.
-     * @param density Density of the mixture in in kg/m^3.
-     * @param largestMolecularSize Largest molecular size in that mixture in m^3.
-     */
-    Mixture(int id, std::unordered_map<int, double> fluidConcentrations, double viscosity, double density, double largestMolecularSize);
+    Fluid(int id, std::string name, double viscosity, double density, double concentration);
 };
 
 /**
@@ -166,25 +136,6 @@ struct Injection {
      * @param[in] position Relative position (between 0.0 and 1.0) of the middle of the droplet inside channel.
      */
     Injection(int id, int dropletId, double time, int channelId, double position);
-};
-
-/**
- * @brief Struct to contain an continuous injection specified by id, mixtureId, time, and pumpId. A continuous event is the change of the input mixture of a pump.
- */
-struct ContinuousInjection {
-    int id;         ///< Id of the injection.
-    int mixtureId;  ///< Id of the mixture to be injected.
-    double time;    ///< Time in s at which the injection takes place.
-    int pumpId;     ///< Id of the pump from which the mixture is injected.
-
-    /**
-     * @brief Constructs an injection.
-     * @param[in] id Unique identifier of an injection.
-     * @param[in] mixtureId Id of the mixture which gets injected.
-     * @param[in] time Time at which the droplet is injected.
-     * @param[in] pumpId Id of the pump from which the mixture is injected.
-     */
-    ContinuousInjection(int id, int mixtureId, double time, int pumpId);
 };
 
 /**
@@ -265,60 +216,6 @@ struct PressurePump {
     PressurePump(int id, std::string name, int node0Id, int node1Id, double pressure);
 };
 
-struct Membrane {
-    int id;             ///< Id of the membrane.
-    std::string name;   ///< Name of the membrane.
-    int node0Id;        ///< Id of the node at one end of the membrane.
-    int node1Id;        ///< Id of the node at the other end of the membrane.
-    double width;       ///< Width of a membrane in m.
-    double height;      ///< Height of a membrane in m.
-    double length;      ///< Length of a membrane in m.
-    double poreRadius;  ///< Radius of one pore in m.
-    double porosity;    ///< Porosity of the membrane in % (between 0.0 and 1.0).
-    int channelId;      ///< Membrane on which the barrier is attached (length must be equal).
-    int organId;        ///< Id of the organ the membrane is connected to.
-
-    /**
-     * @brief Construct a new membrane.
-     * 
-     * @param id Unique identifier of the membrane.
-     * @param name Name of the membrane.
-     * @param node0Id Id of the node at one end of the membrane.
-     * @param node1Id Id of the node at the other end of the membrane.
-     * @param width Width of a membrane in m.
-     * @param height Height of a membrane in m.
-     * @param length Length of a membrane in m.
-     * @param poreRadius Radius of one pore in m.
-     * @param porosity Porosity of the membrane in % (between 0.0 and 1.0).
-     * @param channelId Membrane on which the barrier is attached (length must be equal).
-     * @param organId Id of the organ the membrane is connected to.
-     */
-    Membrane(int id, std::string name, int node0Id, int node1Id, double width, double height, double length, double poreRadius, double porosity, int channelId, int organId);
-};
-
-struct Organ {
-    int id;            ///< Id of the organ tank.
-    std::string name;  ///< Name of the membrane.
-    int node0Id;       ///< Id of the node at one end of the membrane.
-    int node1Id;       ///< Id of the node at the other end of the membrane.
-    double width;      ///< Width of a membrane in m.
-    double height;     ///< Height of a membrane in m.
-    double length;     ///< Length of a membrane in m.
-
-    /**
-     * @brief Construct a new organ tank.
-     * 
-     * @param id Unique id of the organ tank.
-     * @param name Name of the membrane.
-     * @param node0Id Id of the node at one end of the membrane.
-     * @param node1Id Id of the node at the other end of the membrane.
-     * @param width Width of a membrane in m.
-     * @param height Height of a membrane in m.
-     * @param length Length of a membrane in m.
-     */
-    Organ(int id, std::string name, int node0Id, int node1Id, double width, double height, double length);
-};
-
 /**
  * @brief Struct to contain a chip specified by name, an unordered map of channels, an unordered map of flow rate pumps and an unordered map of pressure pumps.
  */
@@ -327,8 +224,6 @@ struct Chip {
     std::unordered_map<int, Channel> channels;            ///< Map that contains all channels of the network.
     std::unordered_map<int, FlowRatePump> flowRatePumps;  ///< Map that contains all flow rate pumps of the network.
     std::unordered_map<int, PressurePump> pressurePumps;  ///< Map that contains all pressure pumps of the network.
-    std::unordered_map<int, Membrane> membranes;          ///< Map that contains all membranes of the network.
-    std::unordered_map<int, Organ> organs;                ///< Map that contains all organs of the network.
 };
 
 /**
@@ -340,9 +235,7 @@ struct State {
     std::unordered_map<int, double> pressures;                  ///< Keys are the nodeIds.
     std::unordered_map<int, double> flowRates;                  ///< Keys are the edgeIds (channels and pumps).
     std::unordered_map<int, DropletPosition> dropletPositions;  ///< Only contains the position of droplets that are currently inside the network (key is the droplet id).
-
-    std::unordered_map<int, std::deque<std::pair<int, double>>> mixturesInEdge;  ///< Contains which fluids currently flows in which edge <EdgeID, Deque of <MixtureID, currPos> pairs>>, with currPos being the end position of the mixture (start position is the end position of the mixture before)
-
+    
     /**
      * @brief Constructs a state, which represent a time step during a simulation.
      * @param[in] id Id of the state
@@ -371,14 +264,6 @@ struct State {
      * @return Flowrate at this channel in m^3/s.
      */
     double getFlowRate(int channelId) const;
-
-    /**
-     * @brief Get the Deque of mixtures in a certain edge
-     * 
-     * @param edgeId 
-     * @return Deque of <MixtureID, currPos> pairs, with currPos being the end position of the mixture (start position is the end position of the mixture before)
-     */
-    std::deque<std::pair<int, double>> getMixturesInEdge(int edgeId) const;
 };
 
 /**
@@ -388,7 +273,7 @@ struct State {
 struct DropletPathPosition {
     int stateId;               ///< Id of the state
     std::set<int> channelIds;  ///< Set of channel ids that represent the actual location of all boundaries and fully occupied channels
-
+    
     /**
      * @brief Constructs a droplet position for the DropletPath class.
      * @param[in] stateId Id of the state for which the class is used for.
@@ -402,7 +287,7 @@ struct DropletPathPosition {
 struct DropletPath {
     int dropletId;                               ///< Id of the droplet
     std::vector<DropletPathPosition> positions;  ///< For each state a DropletPathPosition is stored, except for states where the droplet would have the same location as the previous one.
-
+    
     /**
      * @brief Constructs a droplet path for a certain droplet.
      * @param[in] dropletId Id of the droplet.
@@ -428,9 +313,6 @@ struct SimulationResult {
     /// (key is the fluid id)
     std::unordered_map<int, Fluid> fluids;
 
-    // Contains all mixtures (of fluids) which were generated during the simulation. At the beginning for every fluid one mixture with 100% of this fluid is generated. During the simulation new mixtures are generated when parameters change or when channel switches happen.
-    std::unordered_map<int, Mixture> mixtures;
-
     /// Contains all droplets that occurred during the simulation not only the once that were injected (i.e., also merged and splitted droplets)/
     /// The actual position of the droplets during the simulation is then stored inside the states.
     /// (key is the droplet id)
@@ -439,13 +321,12 @@ struct SimulationResult {
     /// Contains all injections that happened during the simulation.
     /// (key is the injection id)
     std::unordered_map<int, Injection> injections;
-    std::unordered_map<int, ContinuousInjection> continuousInjections;
 
     /// Contains all states ordered according to their simulation time (beginning at the start of the simulation).
     std::vector<State> states;
 
-    /// Mixture id which served as the continuous phase.
-    int continuousPhaseMixtureId;
+    /// Fluid id which served as the continuous phase.
+    int continuousPhaseId;
 
     /// Value for the maximal adaptive time step that was used.
     double maximalAdaptiveTimeStep;
@@ -453,24 +334,12 @@ struct SimulationResult {
     /// Id of the used resistance model.
     int resistanceModel;
 
-    // Id of the used membrane resistance model.
-    int membraneResistanceModel;
-
     /**
      * @brief Get the simulated path of a droplet.
      * @param dropletId Id of the droplet for which the path should be returned.
      * @return std::vector<std::pair<double, DropletPosition>> Every entry in the vector represents a simulated timepoint (first value) and the droplet position of the specified droplet at that time.
      */
     DropletPath getDropletPath(int dropletId) const;
-
-    /**
-     * @brief Get the average fluid concentrations in an edge at a specific state during the simulation
-     * 
-     * @param stateId Id of the state
-     * @param edgeId Id of edge for which the average fluid concentration should be calculated
-     * @return std::unordered_map<int, double> with all present fluidIds and their average concentration in the edge
-     */
-    std::unordered_map<int, double> getAverageFluidConcentrationsInEdge(int stateId, int edgeId) const;
 
     /**
      * @brief Converts the struct to a json string.
@@ -485,6 +354,18 @@ struct SimulationResult {
      * @return SimulationResult struct
      */
     static SimulationResult fromJson(std::string json);
+
+    /**
+     * @brief Get the simulated pressures at the nodes.
+     * @return Vector of pressure values
+     */
+    std::unordered_map<int, double> getPressures() const;
+
+    /**
+     * @brief Get the simulated flowrates in the channels.
+     * @return Vector of flowrate values
+     */
+    std::unordered_map<int, double> getFlowRates() const;
 };
 
 }  // namespace droplet

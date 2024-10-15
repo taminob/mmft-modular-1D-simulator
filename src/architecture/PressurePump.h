@@ -5,16 +5,15 @@
 #pragma once
 
 #include "Edge.h"
-#include "IPressurePump.h"
+#include "../nodalAnalysis/IPressurePump.h"
 #include "Node.h"
-#include "Pump.h"
 
 namespace arch {
 
 /**
  * @brief Class to specify a pressure pump, which is a component of a chip.
  */
-class PressurePump : public Pump, public virtual nodal::IPressurePump {
+class PressurePump : public virtual Edge, public virtual nodal::IPressurePump {
   private:
     double pressure;      ///< Pressure of pump in Pa.
     double flowRate = 0;  ///< Flow rate of pump in m^3/s.
@@ -55,7 +54,7 @@ class PressurePump : public Pump, public virtual nodal::IPressurePump {
 
     /**
      * @brief Get resistance of pump.
-     * @return Resistance of pump in Pas/m^3.
+     * @return Resistance of pump in Pas/L.
      */
     double getResistance() const override;
 };

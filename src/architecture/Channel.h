@@ -5,7 +5,7 @@
 #pragma once
 
 #include "Edge.h"
-#include "IResistance.h"
+#include "../nodalAnalysis/IResistance.h"
 #include "Node.h"
 
 namespace arch {
@@ -24,12 +24,11 @@ enum class ChannelType {
  */
 class Channel : public virtual Edge, public virtual nodal::IResistance {
   private:
-    double height = 0;             ///< Height of a channel in m.
-    double width = 0;              ///< Width of a channel in m.
-    double length = 0;             ///< Length of a channel in m.
-    double dropletResistance = 0;  ///< Resistance of droplets inside the channel in Pas/m^3.
-    double channelResistance = 0;  ///< Resistance of a channel without droplets in Pas/m^3.
-
+    double height = 0;                       ///< Height of a channel in m.
+    double width = 0;                        ///< Width of a channel in m.
+    double length = 0;                       ///< Length of a channel in m.
+    double dropletResistance = 0;            ///< Resistance of droplets inside the channel in Pas/L.
+    double channelResistance = 0;            ///< Resistance of a channel without droplets in Pas/L.
     ChannelType type = ChannelType::NORMAL;  ///< What kind of channel it is.
 
   public:
@@ -50,7 +49,7 @@ class Channel : public virtual Edge, public virtual nodal::IResistance {
      * @param[in] id Id of the channel.
      * @param[in] node0 Node at one end of the channel.
      * @param[in] node1 Node at other end of the channel.
-     * @param[in] resistance Resistance of the channel in Pas/m^3.
+     * @param[in] resistance Resistance of the channel in Pas/L.
      * @param[in] type Type of the channel.
      */
     Channel(int id, Node* node0, Node* node1, double resistance, ChannelType type = ChannelType::NORMAL);
@@ -83,13 +82,13 @@ class Channel : public virtual Edge, public virtual nodal::IResistance {
 
     /**
      * @brief Set resistance of a channel without droplets.
-     * @param[in] channelResistance Resistance of a channel without droplets in Pas/m^3.
+     * @param[in] channelResistance Resistance of a channel without droplets in Pas/L.
      */
     void setChannelResistance(double channelResistance);
 
     /**
      * @brief Set resistance caused by droplets within channel.
-     * @param[in] dropletResistance Resistance caused by droplets within channel in Pas/m^3.
+     * @param[in] dropletResistance Resistance caused by droplets within channel in Pas/L.
      */
     void setDropletResistance(double dropletResistance);
 
@@ -101,7 +100,7 @@ class Channel : public virtual Edge, public virtual nodal::IResistance {
 
     /**
      * @brief Add resistance caused by a droplet to droplet resistance of channel that is caused by all droplets currently in the channel.
-     * @param[in] dropletResistance Resistance caused by a droplet in Pas/m^3.
+     * @param[in] dropletResistance Resistance caused by a droplet in Pas/L.
      */
     void addDropletResistance(double dropletResistance);
 
@@ -149,19 +148,19 @@ class Channel : public virtual Edge, public virtual nodal::IResistance {
 
     /**
      * @brief Calculate and returns overall resistance caused by the channel itself and the droplets within the channel.
-     * @returns Overall resistance in Pas/m^3.
+     * @returns Overall resistance in Pas/L.
      */
     double getResistance() const override;
 
     /**
      * @brief Returns resistance caused by the channel itself.
-     * @returns Resistance caused by the channel itself in Pas/m^3.
+     * @returns Resistance caused by the channel itself in Pas/L.
      */
     double getChannelResistance() const;
 
     /**
      * @brief Returns resistance caused by the droplets within the channel.
-     * @returns The resistance caused by the droplets within the channel in Pas/m^3.
+     * @returns The resistance caused by the droplets within the channel in Pas/L.
      */
     double getDropletResistance() const;
 

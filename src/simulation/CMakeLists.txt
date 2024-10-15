@@ -3,10 +3,7 @@ set(SOURCE_LIST
     DropletBoundary.cpp
     Fluid.cpp
     Injection.cpp
-    ChangeInputMixture.cpp
     ResistanceModels.cpp
-    MembraneResistanceModels.cpp
-    Mixture.cpp
     Simulation.cpp
 )
 
@@ -15,12 +12,8 @@ set(HEADER_LIST
     DropletBoundary.h
     Fluid.h
     Injection.h
-    ChangeInputMixture.h
     IResistanceModel.h
     ResistanceModels.h
-    IMembraneResistanceModel.h
-    MembraneResistanceModels.h
-    Mixture.h
     Simulation.h
 )
 
