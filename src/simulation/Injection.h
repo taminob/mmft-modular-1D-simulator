@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "../architecture/ChannelPosition.h"
+#include "ChannelPosition.h"
 #include "Droplet.h"
 
 namespace sim {

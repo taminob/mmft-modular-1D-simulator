@@ -3,9 +3,9 @@
  */
 #pragma once
 
-#include "../../architecture/Chip.h"
-#include "../Droplet.h"
-#include "../DropletBoundary.h"
+#include "Chip.h"
+#include "Droplet.h"
+#include "DropletBoundary.h"
 #include "Event.h"
 
 namespace sim {

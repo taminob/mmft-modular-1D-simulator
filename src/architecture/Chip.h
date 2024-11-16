@@ -8,11 +8,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <stdexcept>
 
 #include "Channel.h"
 #include "FlowRatePump.h"
+#include "Membrane.h"
 #include "Node.h"
+#include "Organ.h"
 #include "PressurePump.h"
 
 namespace arch {
@@ -25,8 +26,10 @@ class Chip {
     std::string name;                                                      ///< Name of the chip.
     std::unordered_map<int, std::unique_ptr<Node>> nodes;                  ///< Nodes the network of the chip consists of.
     std::set<Node*> sinks;                                                 ///< Ids of nodes that are sinks.
-    std::set<Node*> groundNodes;                                           ///< Ids of nodes that are ground nodes.
+    Node* groundNode = nullptr;                                            ///< Pointer to the ground node.
     std::unordered_map<int, std::unique_ptr<Channel>> channels;            ///< Map of ids and channel pointer of all channels the chip consists of.
+    std::unordered_map<int, std::unique_ptr<Membrane>> membranes;          ///< Map of ids and membrane pointer of all membranes the chip consists of.
+    std::unordered_map<int, std::unique_ptr<Organ>> organs;                ///< Map of ids and organ pointer of all organs the chip consists of.
     std::unordered_map<int, std::unique_ptr<PressurePump>> pressurePumps;  ///< Map of ids and pressure pump pointers of all pressure pumps the chip consists of.
     std::unordered_map<int, std::unique_ptr<FlowRatePump>> flowRatePumps;  ///< Map of ids of flow rate pump pointers of all flow rate pumps the chip consists of.
     std::unordered_map<int, std::vector<Channel*>> network;                ///< Network of nodes and corresponding channels at these nodes on the chip.
@@ -80,11 +83,28 @@ class Chip {
      * @brief Adds a new channel to the chip.
      * @param[in] node0Id Id of the node at one end of the channel.
      * @param[in] node1Id Id of the node at the other end of the channel.
-     * @param[in] resistance Resistance of the channel in Pas/L.
+     * @param[in] resistance Resistance of the channel in Pas/m^3.
      * @param[in] type What kind of channel it is.
      * @return Id of the newly created channel.
      */
     int addChannel(int node0Id, int node1Id, double resistance, ChannelType type);
+
+    /**
+     * @brief Creates and adds a membrane to a channel in the simulator.
+     * @param[in] channelId Id of the channel. Channel defines nodes, length and width.
+     * @param[in] height Height of the channel in m.
+     * @param[in] poreSize Size of the pores in m.
+     * @param[in] porosity Porosity of the membrane in % (between 0 and 1).
+     * @return Id of the membrane.
+     */
+    int addMembraneToChannel(int channelId, double height, double width, double poreRadius, double porosity);
+
+    /**
+     * @brief Creates and adds a organ to a membrane in the simulator.
+     * @param[in] membraneId Id of the membrane. Membrane defines nodes, length and width.
+     * @param[in] height Height of the organ in m.
+     */
+    int addOrganToMembrane(int membraneId, double height, double width);
 
     /**
      * @brief Adds a new flow rate pump to the chip.
@@ -99,7 +119,7 @@ class Chip {
      * @brief Adds a new pressure pump to the chip.
      * @param[in] node0Id Id of the node at one end of the pressure pump.
      * @param[in] node1Id Id of the node at the other end of the pressure pump.
-     * @param[in] pressure Pressure of the pump in Pas/L.
+     * @param[in] pressure Pressure of the pump in Pas/m^3.
      * @return Id of the newly created pressure pump.
      */
     int addPressurePump(int node0Id, int node1Id, double pressure);
@@ -127,13 +147,13 @@ class Chip {
      * @brief Returns the id of the ground node.
      * @return Id of the ground node.
      */
-    std::set<int> getGroundIds() const;
+    int getGroundId() const;
 
     /**
      * @brief Returns a pointer to the ground node.
      * @return Pointer to the ground node.
      */
-    std::set<Node*> getGroundNodes() const;
+    Node* getGroundNode() const;
 
     /**
      * @brief Checks if a node with the specified id exists in the network.
@@ -171,10 +191,46 @@ class Chip {
     PressurePump* getPressurePump(int pressurePumpId) const;
 
     /**
+     * @brief Get pointer to a pump with the specified id.
+     * 
+     * @param pumpId Id of the pump.
+     * @return Pointer to the pump with this id.
+     */
+    Pump* getPump(int pumpId) const;
+
+    /**
+     * @brief Get pointer to a membrane with the specified id.
+     * 
+     * @param membraneId Id of the membrane.
+     * @return Pointer to the membrane with this id.
+     */
+    Membrane* getMembrane(int membraneId);
+
+    /**
+     * @brief Get pointer to an organ with the specified id.
+     * 
+     * @param organId Id of the organ.
+     * @return Pointer to the organ with this id.
+     */
+    Organ* getOrgan(int organId);
+
+    /**
      * @brief Get a map of all channels of the chip.
      @return Map that consists of the channel ids and pointers to the corresponding channels.
      */
     const std::unordered_map<int, std::unique_ptr<Channel>>& getChannels() const;
+
+    /**
+     * @brief Get a map of all membranes of the chip.
+     @return Map that consists of the membrane ids and pointers to the corresponding membranes.
+     */
+    const std::unordered_map<int, std::unique_ptr<Membrane>>& getMembranes() const;
+
+    /**
+     * @brief Get a map of all organs of the chip.
+     @return Map that consists of the organ ids and pointers to the corresponding organs.
+     */
+    const std::unordered_map<int, std::unique_ptr<Organ>>& getOrgans() const;
 
     /**
      * @brief Get a map of all nodes of the chip.
@@ -202,7 +258,50 @@ class Chip {
     const std::vector<Channel*>& getChannelsAtNode(int nodeId) const;
 
     /**
-     * @brief Checks if chip network is valid.
+     * @brief Get all edges at a specific node.
+     * 
+     * @param nodeId Id of the node.
+     * @return Vector of pointers to all edges connected to this node.
+     */
+    const std::vector<Edge*>& getEdgesAtNode(int nodeId);
+
+    /**
+     * @brief Get the channel that are connected to both specified nodes.
+     * 
+     * @param nodeId0 Id of node 0.
+     * @param nodeId1 Id of node 1.
+     * @return Pointer to the channel lies between these nodes.
+     */
+    Channel* getChannelBetweenNodes(int nodeId0, int nodeId1);
+
+    /**
+     * @brief Get the membrane that is connected to both specified nodes.
+     * 
+     * @param nodeId0 Id of node 0.
+     * @param nodeId1 Id of node 1.
+     * @return Pointer to the membrane that lies between these nodes.
+     */
+    Membrane* getMembraneBetweenNodes(int nodeId0, int nodeId1);
+
+    /**
+     * @brief Get vector of all membranes that are connected to the specified node.
+     * 
+     * @param nodeId Id of the node.
+     * @return Vector containing pointers to all membranes that are connected to this node.
+     */
+    std::vector<Membrane*> getMembranesAtNode(int nodeId);
+
+    /**
+     * @brief Get the organ that lies between two nodes.
+     * 
+     * @param nodeId0 Id of node0.
+     * @param nodeId1 Id of node1.
+     * @return Pointer to the organ that lies between the two nodes.
+     */
+    Organ* getOrganBetweenNodes(int nodeId0, int nodeId1);
+
+    /**
+     * @brief Checks if chip network is valid in the sense that all nodes and channels need to be connected to ground (and channel network must be one graph).
      * @return If the network is valid.
      */
     bool isNetworkValid();

@@ -5,7 +5,7 @@
 
 #include <string>
 
-#include "../nodalAnalysis/INode.h"
+#include "INode.h"
 
 namespace arch {
 

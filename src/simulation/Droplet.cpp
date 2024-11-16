@@ -4,7 +4,7 @@
 #include <memory>
 #include <string>
 
-#include "../architecture/Channel.h"
+#include "Channel.h"
 #include "IResistanceModel.h"
 
 namespace sim {

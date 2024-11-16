@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <vector>
 
-#include "../../architecture/Channel.h"
-#include "../Droplet.h"
-#include "../DropletBoundary.h"
+#include "Channel.h"
+#include "Droplet.h"
+#include "DropletBoundary.h"
 #include "Event.h"
-#include "../../architecture/Node.h"
+#include "Node.h"
 
 namespace sim {
 

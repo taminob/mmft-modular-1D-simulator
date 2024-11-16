@@ -38,6 +38,27 @@ class Simulator {
     int addChannel(int node0Id, int node1Id, double height, double width, double length);
 
     /**
+     * @brief Creates and adds a membrane to a channel in the simulator.
+     * @param[in] channelId Id of the channel. Channel defines nodes and length.
+     * @param[in] height Height of the membrane in m.
+     * @param[in] width Width of the membrane in m.
+     * @param[in] poreRadius Radius of the pores in m.
+     * @param[in] porosity Porosity of the membrane in % (between 0 and 1).
+     * @return Id of the membrane.
+     */
+    int addMembraneToChannel(int channelId, double height, double width, double poreRadius, double porosity);
+
+    /**
+     * @brief Creates and adds an organ to a membrane in the simulator.
+     * 
+     * @param membraneId Id of the membrane the organ should be added to.
+     * @param height Height of the organ in m.
+     * @param width Width of the organ in m.
+     * @return Id of the organ.
+     */
+    int addOrganToMembrane(int membraneId, double height, double width);
+
+    /**
      * @brief Creates and adds bypass channel to the simulator.
      * @param[in] node0Id Id of the node at one end of the channel.
      * @param[in] node1Id Id of the node at the other end of the channel.
@@ -86,18 +107,47 @@ class Simulator {
 
     /**
      * @brief Add fluid to the simulator.
-     * @param[in] viscosity Viscosity of the fluid in Pa s.
-     * @param[in] density Density of the fluid in kg/m^3.
-     * @param[in] concentration Concentration of the fluid in % (between 0.0 and 1.0).
+     * 
+     * @param viscosity  Viscosity of the fluid in Pa s.
+     * @param density Density of the fluid in kg/m^3.
+     * @param concentration Concentration of the fluid in % (between 0.0 and 1.0).
+     * @param molecularSize Molecular size in m^3.
+     * @param diffusionCoefficient Diffusion coefficient of the fluid in m^2/s.
+     * @param saturation Saturation value to translate the concentration in an actual concentration value in mol/m^3.
      * @return Id of the fluid.
      */
-    int addFluid(double viscosity, double density, double concentration = 0.0);
+    int addFluid(double viscosity, double density, double concentration, double molecularSize, double diffusionCoefficient = 0.0, double saturation = 0.0);
+
+    /**
+     * @brief Add a mixture of fluids
+     * 
+     * @param[in] fluids a unordered map of fluid and concentration pairs.
+     * @return Id of the fluid.
+     */
+    int addMixture(std::unordered_map<int, double> fluids);
 
     /**
      * @brief Specifies which fluid is the continuous phase.
-     * @param[in] fluidId
+     * @param[in] fluidId Id of the fluid that should be set as continuous phase.
      */
     void setContinuousPhase(int fluidId);
+
+    /**
+     * @brief Specifies the change of an input fluid from a certain pump starting at a certain time.
+     * @param[in] fluidId Id of the fluid that should be injected.
+     * @param[in] pumpId Id of the pump at which the fluid should be injected.
+     * @param[in] injectionTime Time of the injection.
+     */
+    void setChangeInputFluid(int fluidId, int pumpId, double injectionTime);
+
+    /**
+     * @brief Specifies the change of an input mixture from a certain pump starting at a certain time.
+     * 
+     * @param mixtureId Id of the mixture that should be injected.
+     * @param pumpId Id of the pump at which the fluid should be injected.
+     * @param injectionTime Time of the injection.
+     */
+    void setChangeInputMixture(int mixtureId, int pumpId, double injectionTime);
 
     /**
      * @brief Define the maximal adaptive time step of the simulation.
@@ -117,6 +167,27 @@ class Simulator {
      * @return Id of the droplet.
      */
     int addDroplet(int fluidId, double volume, double injectionTime, int channelId, double relInjectionPosition);
+
+    /**
+     * @brief Set the duration which should be simulated. This is required for continuous fluid simulations.
+     * 
+     * @param duration Duration of the simulation in s.
+     */
+    void setSimulationDuration(double duration);
+
+    /**
+     * @brief Set the time step at which results should be stored. This is required for continuous fluid simulations. More timeSteps might happen in the background if necessary.
+     * 
+     * @param timeStep Time step in s.
+     */
+    void setSimulationResultTimeStep(double timeStep);
+
+    /**
+     * @brief Set the minimal internal simulation timestep for which an intermediate simulation state should be calculated. Required for continuous fluid simulations.
+     * 
+     * @param timeStep Minimal time interval for which the simulation should be calculated. More timeSteps might happen in the background if necessary.
+     */
+    void setSimulationCalculationTimeStep(double timeStep);
 
     /**
      * @brief Conduct the simulation.

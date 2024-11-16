@@ -1,8 +1,8 @@
 #include "DropletBoundary.h"
 
-#include "../architecture/Channel.h"
-#include "../architecture/ChannelPosition.h"
-#include "../architecture/Chip.h"
+#include "Channel.h"
+#include "ChannelPosition.h"
+#include "Chip.h"
 
 namespace sim {
 

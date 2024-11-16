@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "../nodalAnalysis/IEdge.h"
+#include "IEdge.h"
 #include "Node.h"
 
 namespace arch {

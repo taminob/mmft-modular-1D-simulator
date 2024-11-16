@@ -3,27 +3,23 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
-#include "../architecture/Channel.h"
-#include "../architecture/FlowRatePump.h"
-#include "../architecture/PressurePump.h"
+
 #include "Eigen/Dense"
+#include "IFlowRatePump.h"
 #include "INode.h"
-
-#include <iostream>
-
+#include "IPressurePump.h"
+#include "IResistance.h"
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 namespace nodal {
 
-void conductNodalAnalysis(const std::unordered_map<int, std::tuple<INode*, int>>& nodes, const std::vector<arch::Channel*>& channels, const std::vector<arch::PressurePump*>& pressurePumps, const std::vector<arch::FlowRatePump*>& flowRatePumps) {
+void conductNodalAnalysis(const std::unordered_map<int, std::tuple<INode*, int>>& nodes, const std::vector<IResistance*>& channels, const std::vector<IPressurePump*>& pressurePumps, const std::vector<IFlowRatePump*>& flowRatePumps) {
     const int nNodes = nodes.size() - 1;  // -1 due to ground node
     const int nPressurePumps = pressurePumps.size();
     const int nFlowRatePumps = flowRatePumps.size();
     const int nNodesAndPressurePumps = nNodes + nPressurePumps;
     const int groundNodeMatrixId = -1;
-    
-    int p = (int)(log((*channels.begin())->getResistance())/log(10));
 
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(nNodesAndPressurePumps, nNodesAndPressurePumps);  // matrix A = [G, B; C, D]
     Eigen::VectorXd z = Eigen::VectorXd::Zero(nNodesAndPressurePumps);                          // vector z = [i; e]
@@ -32,7 +28,7 @@ void conductNodalAnalysis(const std::unordered_map<int, std::tuple<INode*, int>>
     for (const auto channel : channels) {
         auto node0MatrixId = std::get<1>(nodes.at(channel->getNode0()->getId()));
         auto node1MatrixId = std::get<1>(nodes.at(channel->getNode1()->getId()));
-        const double conductance = pow(10, p) / channel->getResistance();
+        const double conductance = 1 / channel->getResistance();
 
         // main diagonal elements of G
         if (node0MatrixId != groundNodeMatrixId) {
@@ -74,7 +70,7 @@ void conductNodalAnalysis(const std::unordered_map<int, std::tuple<INode*, int>>
     for (const auto flowRatePump : flowRatePumps) {
         auto node0MatrixId = std::get<1>(nodes.at(flowRatePump->getNode0()->getId()));
         auto node1MatrixId = std::get<1>(nodes.at(flowRatePump->getNode1()->getId()));
-        const double flowRate = pow(10, p)*(flowRatePump->getFlowRate());
+        const double flowRate = flowRatePump->getFlowRate();
 
         if (node0MatrixId != groundNodeMatrixId) {
             z(node0MatrixId) = -flowRate;
@@ -101,7 +97,7 @@ void conductNodalAnalysis(const std::unordered_map<int, std::tuple<INode*, int>>
     // set flow rate at pressure pumps
     iPump = nNodes;
     for (const auto pressurePump : pressurePumps) {
-        pressurePump->setFlowRate(pow(10, -p)*x(iPump));
+        pressurePump->setFlowRate(x(iPump));
         iPump++;
     }
 }

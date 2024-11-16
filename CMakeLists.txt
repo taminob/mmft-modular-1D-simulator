@@ -37,7 +37,6 @@ find_package(Doxygen)
 if(DOXYGEN_FOUND)
     # set main page for doxygen
     set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "DoxygenMainPage.md")
-    set(DOXYGEN_IMAGE_PATH "doc/images")
 
     # add target for documentaiton
     doxygen_add_docs(
@@ -45,6 +44,13 @@ if(DOXYGEN_FOUND)
         "src/" "include/" "doc/DoxygenMainPage.md"
     )
 endif()
+
+# add a profiling configuration
+# set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fprofile-instr-generate -fcoverage-mapping")
+
+# set(CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}" CACHE STRING
+# "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel Profiling."
+# FORCE)
 
 # add library
 set(TARGET_NAME droplet)

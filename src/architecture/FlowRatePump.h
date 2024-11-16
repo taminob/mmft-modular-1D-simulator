@@ -5,15 +5,17 @@
 #pragma once
 
 #include "Edge.h"
-#include "../nodalAnalysis/IFlowRatePump.h"
+#include "Fluid.h"
+#include "IFlowRatePump.h"
 #include "Node.h"
+#include "Pump.h"
 
 namespace arch {
 
 /**
  * @brief Class to specify a flow rate pump, which is a component of a chip.
  */
-class FlowRatePump : public virtual Edge, public virtual nodal::IFlowRatePump {
+class FlowRatePump : public Pump, public virtual nodal::IFlowRatePump {
   private:
     double flowRate;  ///< Volumetric flow rate of the pump in m^3/s.
 
@@ -47,7 +49,7 @@ class FlowRatePump : public virtual Edge, public virtual nodal::IFlowRatePump {
 
     /**
      * @brief Get resistance over flow rate pump.
-     * @return Resistance over flow rate pump in Pas/L.
+     * @return Resistance over flow rate pump in Pas/m^3.
      */
     double getResistance() const override;
 };

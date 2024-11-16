@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "../architecture/Channel.h"
+#include "Channel.h"
 #include "DropletBoundary.h"
 #include "Fluid.h"
 #include "IResistanceModel.h"
@@ -34,14 +34,14 @@ enum class DropletState {
  */
 class Droplet {
   private:
-    int const id;                                         ///< Unique identifier of the droplet.
-    std::string name = "";                                ///< Name of the droplet.
-    double volume;                                        ///< Volume of the droplet in m^3.
-    Fluid* fluid;                                         ///< Pointer to fluid of which the droplet consists of.
-    std::vector<Droplet*> mergedDroplets;                 ///< List of previous droplets, if this droplet got merged.
-    DropletState dropletState = DropletState::INJECTION;  ///< Current state of the droplet
-    std::vector<std::unique_ptr<DropletBoundary>> boundaries;
-    std::vector<arch::Channel*> channels;  ///< Contains the channels, that are completely occupied by the droplet (can happen in short channels or with large droplets).
+    int const id;                                              ///< Unique identifier of the droplet.
+    std::string name = "";                                     ///< Name of the droplet.
+    double volume;                                             ///< Volume of the droplet in m^3.
+    Fluid* fluid;                                              ///< Pointer to fluid of which the droplet consists of.
+    std::vector<Droplet*> mergedDroplets;                      ///< List of previous droplets, if this droplet got merged.
+    DropletState dropletState = DropletState::INJECTION;       ///< Current state of the droplet
+    std::vector<std::unique_ptr<DropletBoundary>> boundaries;  ///< Boundaries of the droplet
+    std::vector<arch::Channel*> channels;                      ///< Contains the channels, that are completely occupied by the droplet (can happen in short channels or with large droplets).
 
   public:
     /**
