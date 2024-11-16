@@ -1,6 +1,7 @@
 #include "Chip.h"
 
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 
 #include "FlowRatePump.h"
